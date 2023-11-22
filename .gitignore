@@ -1,0 +1,20 @@
+# Ignore the virtual environment directory
+.venv/
+
+# Ignore pycache
+**/__pycache__/
+*.pyc
+
+# Ignore IDE-specific files
+.idea/
+.vscode/
+
+# Ignore .DS_Store (OSX)
+**/.DS_Store
+
+# Ignore the file with our secret keys
+.env
+
+# Ignore results file
+results.json
+

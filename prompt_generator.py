@@ -168,9 +168,9 @@ def generate_prompt(prompt_description, failed_eval_results):
         </generated_prompt>
         </example_1>
         <example_2>
-        Prompt Description: ```redact PII from text```
+        Prompt Description: ```redact PII from text with 'XXX'```
         <prompt_generation_scratchpad>
-        The user wants to create a prompt that will guide the LLM to extract PII from text. I will create a prompt that will instruct the model to extract PII from a place holder text. Then, it will be asked to follow a methodical procedure to extract PII. It will first identify the PII in the text, then it will extract the PII. Finally, it will compose its answer based on the information it extracted.
+        The user wants to create a prompt that will guide the LLM to redact Personally Identifying Information (PII) from text. I will create a prompt that will instruct the LLM to read the input text. Then, I will instruct it to follow a methodical procedure to redact PII. The answer will be a re-statement of the text, replacing any PII with 'XXX'.
         </prompt_generation_scratchpad>
         <generated_prompt>
         
@@ -198,16 +198,15 @@ def generate_prompt(prompt_description, failed_eval_results):
 
         Assistant: """
 
-    prompt_generation_response = send_request_to_claude(prompt_generation_prompt)
+    prompt_generation_response = send_request_to_claude(
+        prompt_generation_prompt, max_tokens_to_sample=100000, temperature=0.1
+    )
     if prompt_generation_response:
         generated_prompt = extract_generated_prompt(prompt_generation_response)
         A_idx = generated_prompt.find("\nA:")
         generated_prompt = generated_prompt[: A_idx + 4]
-        print_info(f"\n*** Generated prompt ***")
-        print(f"{generated_prompt}")
-        if len(generated_prompt) < 10:
-            print_warning(f"Prompt generation failed.")
-            exit(1)
+        print_info(f"*** Generated prompt. ***")
+        print(f"{clean_prompt(generated_prompt)}")
         return generated_prompt
     else:
         return "prompt generation failed."
@@ -265,12 +264,12 @@ def extract_test_cases(response):
 
 # Function to generate test cases
 def generate_test_cases(prompt):
-    print_info(f"*** Generating test cases... ***")
+    print_info(f"\n*** Generating test cases... ***")
     test_case_generation_prompt = f"""\n\nHuman: You are an experienced prompt engineer. Your task is to create test case inputs based on a given LLM prompt. The inputs should be designed to effectively evaluate the prompt's quality, adherence to best-practices, and success in achieving its desired goal.
 
     Follow this procedure to generate test cases:
     1. Read the prompt carefully, focusing on its intent, goal, and task it is designed to elicit from the LLM. Document your understanding of the prompt in <prompt_analysis></prompt_analysis> XML tags.
-    2. Generate 5 test cases that can be used to assess how well the prompt achieves its goal. Ensure they are diverse and cover different aspects of the prompt. The test cases should attempt to reveal areas where the prompt can be improved. Write your numbered test cases in <test_case_#></test_case_#> XML tags. Inside these tags, use additional tags that specify the name of the variable your input is represented by. 
+    2. Generate {NUM_TEST_CASES} test cases that can be used to assess how well the prompt achieves its goal. Ensure they are diverse and cover different aspects of the prompt. The test cases should attempt to reveal areas where the prompt can be improved. Write your numbered test cases in <test_case_#></test_case_#> XML tags. Inside these tags, use additional tags that specify the name of the variable your input is represented by. 
     
     Use the following examples to format your test cases. Follow this format precisely.
     <examples>
@@ -369,7 +368,9 @@ def generate_test_cases(prompt):
 
     Assistant: """
 
-    test_cases_response = send_request_to_claude(test_case_generation_prompt)
+    test_cases_response = send_request_to_claude(
+        test_case_generation_prompt, max_tokens_to_sample=100000, temperature=0.2
+    )
     if test_cases_response:
         test_cases = extract_test_cases(test_cases_response)
         print_info(f"*** Generated {len(test_cases)} test cases. ***")
@@ -431,6 +432,18 @@ def identify_placeholders(prompt):
     {{FAQ_document}}
     </placeholders>
     </example>
+    <example>
+    <text>
+    Please read the following text carefully. You will be asked questions about it later.
+    <text>
+    {{TEXT}}
+    </text>
+    </text>
+    
+    <placeholders>
+    {{TEXT}}
+    </placeholders>
+    </example>
     </examples>
 
     Here is the text you need to process. Read it carefully:
@@ -443,7 +456,7 @@ def identify_placeholders(prompt):
     Assistant: """
 
     placeholder_identification_response = send_request_to_claude(
-        placeholder_identification_prompt
+        placeholder_identification_prompt, max_tokens_to_sample=100, temperature=0
     )
     if placeholder_identification_response:
         return extract_variable_placeholders(placeholder_identification_response)
@@ -494,7 +507,7 @@ def update_variable_names(test_cases, placeholder_names, test_case_retry=True):
 
 
 # Function to send request to Claude API
-def send_request_to_claude(prompt):
+def send_request_to_claude(prompt, max_tokens_to_sample=100000, temperature=0):
     completion = anthropic.completions.create(
         prompt=prompt,
         # model="claude-v1",
@@ -511,7 +524,9 @@ def send_request_to_claude(prompt):
         print_warning(
             f"Completion stopped unexpectedly. Reason: '{stop_reason}' - Stop Sequence: '{stop_sequence}'"
         )
-    # print_info(completion)
+    if len(response) < 10 and "no" in response.lower():
+        print_warning(f"Completion failed.")
+        return None
     return response
 
 
@@ -539,7 +554,9 @@ def evaluate_response(prompt_to_eval, response_to_eval):
     Assistant: 
     """
 
-    evaluation_response = send_request_to_claude(evaluation_prompt)
+    evaluation_response = send_request_to_claude(
+        evaluation_prompt, max_tokens_to_sample=5000, temperature=0
+    )
     if evaluation_response:
         return evaluation_response
     else:
@@ -638,6 +655,164 @@ def parse_xml_content(llm_output, tags_to_parse=None):
         return llm_output
 
 
+# Function to generate a prompt based on the goal and test results and then clean it
+def generate_and_clean_prompt(goal, test_results):
+    prompt_template = generate_prompt(goal, test_results)
+    cleaned_prompt_template = clean_prompt(prompt_template)
+    return prompt_template, cleaned_prompt_template
+
+
+# Function to set up test cases based on the prompt template and placeholder names
+def setup_test_cases(prompt_template, placeholder_names):
+    while True:
+        test_cases = generate_test_cases(prompt_template)
+        test_cases, test_case_retry = update_variable_names(
+            test_cases, placeholder_names
+        )
+        if not test_case_retry:
+            break
+    return test_cases
+
+
+# This function processes the test cases, evaluates responses, and stores results.
+def process_test_cases(test_cases, prompt_template, combined_results, test_results):
+    results, failed_test_cases = {}, False
+    print_info(f"\n*** Evaluating test cases... ***")
+    for test_case in test_cases:
+        skip_test_case, response, evaluation = handle_test_case(
+            test_cases[test_case], prompt_template
+        )
+        if skip_test_case:
+            continue
+
+        eval_result = extract_eval_result(evaluation)
+        test_case_failed = handle_eval_result(test_case, eval_result)
+        failed_test_cases = (
+            failed_test_cases or test_case_failed
+        )  # Update only if a failure is detected
+
+        test_result = update_test_results(
+            test_case,
+            prompt_template,
+            test_cases[test_case],
+            response,
+            evaluation,
+        )
+        test_results.update(test_result)
+
+        result_for_file = store_results_for_file(test_case, response, evaluation)
+        results.update(result_for_file)
+
+        parsed_results = parse_results_for_file(
+            results, test_case, prompt_template, response
+        )
+        combined_results.append(parsed_results)
+
+    return test_results, combined_results, failed_test_cases
+
+
+# Function to handle the case where no input variables are detected in the prompt
+def process_no_input_var_case(prompt_template, combined_results, test_results):
+    results = {}
+    prompt = clean_prompt(prompt_template)
+    response, evaluation = execute_prompt(prompt)
+    eval_result = extract_eval_result(evaluation)
+    eval_failed = handle_eval_result("", eval_result)
+    test_results = update_test_results(0, prompt, "None", response, evaluation)
+    result_for_file = store_results_for_file(0, response, evaluation)
+    results.update(result_for_file)
+    parsed_results = parse_results_for_file(results, 0, prompt, response)
+    combined_results.append(parsed_results)
+    return test_results, combined_results, eval_failed
+
+
+# Function to send a request with the prompt to Claude and receive a response
+def execute_prompt(prompt):
+    response = send_request_to_claude(
+        prompt, max_tokens_to_sample=100000, temperature=0
+    )
+    evaluation = evaluate_response(prompt, response)
+    return response, evaluation
+
+
+# Function to handle each test case: executing the prompt and processing the response
+def handle_test_case(test_case_data, prompt_template):
+    skip_test_case = False
+    for val in test_case_data.values():
+        if val is None or val == "None":
+            print_warning(f"Skipping test case because it contains invalid input.")
+            skip_test_case = True
+            break
+
+    if skip_test_case:
+        return True, None, None
+
+    loaded_prompt = load_prompt(prompt_template, test_case_data)
+    loaded_prompt = clean_prompt(loaded_prompt)
+    response, evaluation = execute_prompt(loaded_prompt)
+    return False, response, evaluation
+
+
+def handle_eval_result(tc_name, eval_result):
+    if tc_name == "":
+        tc_name = "evaluation"
+    print(f"{tc_name}: ", end="")
+    if eval_result == "FAIL":
+        print_warning("FAIL")
+        return True  # Indicates failure
+    elif eval_result == "PASS" or (
+        "pass" in eval_result.lower() and "fail" not in eval_result.lower()
+    ):
+        print_success("PASS")
+        return False  # Indicates success
+    else:
+        print_info("Evaluation result not found.")
+        return False  # Default to no failure
+
+
+# Function to update the test results with each test case's data
+def update_test_results(
+    test_case_key, prompt_template, test_case_input, response, evaluation
+):
+    test_result = {}
+    test_result[test_case_key] = {
+        "prompt": prompt_template,
+        "input": test_case_input,
+        "response": response,
+        "evaluation": evaluation,
+    }
+    return test_result
+
+
+# Function to store results for saving to a file
+def store_results_for_file(test_case, response, evaluation):
+    results = {}
+    results[test_case] = {"response": response, "evaluation": evaluation}
+    return results
+
+
+# Function to parse results for saving to a file
+def parse_results_for_file(results, test_case, prompt_template, response):
+    parsed_response = parse_xml_content(results[test_case]["response"])
+    parsed_evaluation = parse_xml_content(
+        results[test_case]["evaluation"], ["evaluation_scratchpad", "evaluation_result"]
+    )
+    return {
+        "prompt_template": prompt_template,
+        "raw_response": response,
+        "parsed_response": parsed_response,
+        "parsed_evaluation": parsed_evaluation,
+    }
+
+
+# Function to print the final generated prompt and completion message
+def print_final_results(cleaned_prompt_template):
+    print_success(f"\nGENERATED PROMPT:")
+    print(f"{cleaned_prompt_template}")
+    print_success(f"\n\n*** Prompt generation and evaluation complete. ***")
+    print_success(f"*** See more in results.json file ***")
+
+
 # Main execution flow
 def main():
     anthropic_api_key = load_configuration()
@@ -646,149 +821,50 @@ def main():
         return
 
     goal = prompt_user()
-    input_vars_detected = False
-    combined_results = []
-    test_results = {}
-    first_iteration = True
-    failed_test_cases = False
-    while True:  # Loop until all test cases pass
-        failed_test_cases = False
-        # Generate initial prompt
-        prompt_template = generate_prompt(goal, test_results)
-        cleaned_prompt_template = clean_prompt(
-            prompt_template
-        )  # Only used to print the final prompt
-        # Identify variable placeholders
+    combined_results, test_results = [], {}
+    input_vars_detected, first_iteration = False, True
+    test_cases = None
+
+    while True:
+        prompt_template, cleaned_prompt_template = generate_and_clean_prompt(
+            goal, test_results
+        )
         placeholder_names = identify_placeholders(prompt_template)
+        input_vars_detected = placeholder_names[0] != "None"
 
-        if placeholder_names[0] != "None":
-            input_vars_detected = True
-
-        # Generate test cases for the prompt
+        # Generate test cases only on the first iteration and if input variables are detected
         if first_iteration and input_vars_detected:
-            test_case_retry = True
-            while (
-                test_case_retry
-            ):  # Loop until placeholder names match test case input variable names
-                # Use the same test cases across prompt iterations
-                test_cases = generate_test_cases(prompt_template)
-                # Check if test case input variable names match placeholder names
-                test_cases, test_case_retry = update_variable_names(
-                    test_cases, placeholder_names
-                )
+            test_cases = setup_test_cases(prompt_template, placeholder_names)
 
         if input_vars_detected:
-            results = {}
-            # Include XML parsing in results
-            parsed_results = {}
-            test_results = {}
-            skip_test_case = False
-            for test_case in test_cases:
-                print_info(f"\n\n*** Evaluating input ***")
-                print(f"{test_cases[test_case]}")
-                for val in test_cases[test_case].values():
-                    if val is None or val == "None":
-                        skip_test_case = True
-                        break
-                if skip_test_case:
-                    print_warning(
-                        f"Skipping test case {test_case} because it contains invalid input."
-                    )
-                    skip_test_case = False
-                    continue
-                # Load prompt with input from the test case
-                loaded_prompt = load_prompt(prompt_template, test_cases[test_case])
-
-                # Get prompt ready for Claude
-                loaded_prompt = clean_prompt(loaded_prompt)
-
-                # Send request and get response
-                response = send_request_to_claude(loaded_prompt)
-                print_info(f"\n*** Response received ***")
-                print(f"{response}")
-
-                # Evaluate response
-                evaluation = evaluate_response(loaded_prompt, response)
-
-                print_info(f"\n*** Self-evaluation result ***")
-                # Extract the result
-                eval_result = extract_eval_result(evaluation)
-                if eval_result == "FAIL":
-                    print_warning(f"{eval_result}")
-                    failed_test_cases = True
-                elif eval_result == "PASS":
-                    print_success(f"{eval_result}")
-                else:
-                    print_info("Evaluation result not found.")
-                    # For now, treat as a pass #TODO: Handle this case
-
-                # Store test results for iterative improvement
-                test_results[test_case] = {
-                    "prompt": prompt_template,
-                    "input": test_cases[test_case],
-                    "response": response,
-                    "evaluation": evaluation,
-                }
-
-                # For results file save
-                results[test_case] = {"response": response, "evaluation": evaluation}
-                raw_response = response
-                parsed_response = parse_xml_content(results[test_case]["response"])
-                parsed_evaluation = parse_xml_content(
-                    results[test_case]["evaluation"],
-                    ["evaluation_scratchpad", "evaluation_result"],
+            if test_cases is not None:  # Proceed if test_cases are available
+                test_results, combined_results, failed_test_cases = process_test_cases(
+                    test_cases, prompt_template, combined_results, test_results
                 )
-                parsed_results[test_case] = {
-                    "prompt_template": prompt_template,
-                    "prompt_loaded": loaded_prompt,
-                    "raw_response": raw_response,
-                    "parsed_response": parsed_response,
-                    "parsed_evaluation": parsed_evaluation,
-                }
-                combined_results.append(parsed_results[test_case])
-
-            # Save final results
-            save_results_to_json(combined_results)
-            if failed_test_cases:
-                print_warning(f"*** Some test cases failed. ***")
-                first_iteration = False
             else:
+                print_warning("No test cases available.")
+                break
+
+            if not failed_test_cases:
                 print_success(f"\n*** All test cases passed! ***")
                 break
-        else:  # No input variables detected
-            cleaned_prompt_template = clean_prompt(prompt_template)
-            # Send request and get response
-            response = send_request_to_claude(cleaned_prompt_template)
-            # Evaluate response
-            evaluation = evaluate_response(cleaned_prompt_template, response)
+        else:
+            test_results, combined_results, failed_evaluation = process_no_input_var_case(
+                prompt_template, combined_results, test_results
+            )
 
-            print_info(f"\n*** Self-evaluation result ***")
-            # Extract the result
-            eval_result = extract_eval_result(evaluation)
-            if eval_result == "FAIL":
-                print_warning(f"\n*** Evaluation failed. ***")
-                failed_test_cases = True
-            elif eval_result == "PASS":
-                print_success(f"\n*** Evaluation passed! ***")
+            if not failed_evaluation:
+                print_success(
+                    f"\n*** Evaluation passed! No input variables were detected in this prompt. ***"
+                )
                 break
-            else:
-                print_info("Evaluation result not found.")
-                break
-                # For now, treat as a pass #TODO: Handle this case
 
-            # Store test results for iterative improvement
-            test_results[0] = {
-                "prompt": cleaned_prompt_template,
-                "input": "None",
-                "response": response,
-                "evaluation": evaluation,
-            }
+        first_iteration = False  # Set to False after the first iteration
 
-    print_success(f"\nGENERATED PROMPT:")
-    print(f"{cleaned_prompt_template}")
-    print_success(f"\n\n*** Prompt generation and evaluation complete. ***")
-    print_success(f"*** Info saved to results.json ***")
+    save_results_to_json(combined_results)
+    print_final_results(cleaned_prompt_template)
 
 
 if __name__ == "__main__":
+    NUM_TEST_CASES = 5  # Modify as needed
     main()

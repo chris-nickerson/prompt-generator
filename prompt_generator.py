@@ -19,17 +19,42 @@ def load_configuration():
 
 # Function to prompt user for prompt description
 def prompt_user():
-    newline = "\n"
-    print_info(
-        f"{newline * 20}*** This tool can help you craft effective prompts for Claude! ***"
-    )
-    print_info(
-        f"\nEnter some high-level info about what you want Claude to do.\nNote: It may be helpful if you start off by thinking 'This prompt should guide Claude to...' before typing your prompt description.\nClaude will then attempt to create and self-evaluate a prompt against generated test cases."
-    )
-    print_info("\nPress '0' to enter your own prompt description, or choose a preset:")
-    # List of pre-defined prompt options
-    prompt_options = {
-        "0": "Enter your own custom prompt description.",
+    print_info("\n*** Claude Prompt Generator ***")
+    print_info("\nThis tool can help engineer effective prompts for Claude.")
+    print_info("\nWould you like to:")
+    print_info("1. Enter a custom prompt description")
+    print_info("2. View preset examples")
+
+    user_choice = input("\nEnter your choice (1 or 2): ")
+
+    if user_choice == "1":
+        custom_prompt = input("This prompt should guide Claude to: ")
+        print_info(f"\nCustom prompt description entered: {custom_prompt}")
+        return "The prompt should guide the LLM to: " + custom_prompt
+    elif user_choice == "2":
+        return display_presets()
+    else:
+        print_info("\nInvalid choice. Please enter 1 or 2.")
+        return prompt_user()  # Recursive call for invalid input
+
+
+def display_presets():
+    prompt_options = get_prompt_options()
+    print_info("\nSelect a preset example:")
+    for key, value in prompt_options.items():
+        print_info(f"{key}. {value}")
+    user_input = input("\nEnter the number of your choice: ")
+
+    if user_input in prompt_options:
+        print_info(f"\nYou have selected: {prompt_options[user_input]}")
+        return "The prompt should guide the LLM to: " + prompt_options[user_input]
+    else:
+        print_info("\nInvalid selection. Please try again.")
+        return display_presets()  # Recursive call for invalid input
+
+
+def get_prompt_options():
+    return {
         "1": "Redact personally identifiable information (PII) from a given text with 'XXX' and return the redacted text.",
         "2": "Solve a specific reasoning question.",
         "3": "Extract phone numbers from a text and put them into a standard format.",
@@ -40,31 +65,6 @@ def prompt_user():
         "8": "Create a short rap about a specified inanimate object.",
         "9": "Organize information from a student info text file into JSON with keys 'name', 'grade', 'gpa', 'major'.",
     }
-
-    # Display the options
-    for key, value in prompt_options.items():
-        print_info(f"{key}. {value}")
-
-    # User input for selecting or entering a template
-    user_input = input("\nPlease enter the number of your choice: ")
-
-    # Process the user input
-    if user_input in prompt_options:
-        if user_input == "0":
-            custom_prompt = input("Enter your custom prompt description: ")
-            print_info(f"\nCustom prompt description entered: {custom_prompt}")
-            goal = custom_prompt
-            # Here, you can add functionality to handle the custom prompt
-        else:
-            print_info(f"\nYou have selected: {prompt_options[user_input]}")
-            goal = prompt_options[user_input]
-            # Here, you can add functionality to execute the selected pre-defined option
-    else:
-        print_info(
-            "\nInvalid selection. Please enter a number from the list above or type '7' for a custom prompt."
-        )
-    goal = "The prompt should guide the LLM to: " + goal
-    return goal
 
 
 # Function to extract generated prompt from XML tags
@@ -807,10 +807,10 @@ def parse_results_for_file(results, test_case, prompt_template, response):
 
 # Function to print the final generated prompt and completion message
 def print_final_results(cleaned_prompt_template):
-    print_success(f"\nGENERATED PROMPT:")
+    print_info(f"\nGENERATED PROMPT:")
     print(f"{cleaned_prompt_template}")
     print_success(f"\n\n*** Prompt generation and evaluation complete. ***")
-    print_success(f"*** See more in results.json file ***")
+    print_info(f"*** See more in results.json file ***")
 
 
 # Main execution flow
@@ -849,7 +849,11 @@ def main():
                 print_success(f"\n*** All test cases passed! ***")
                 break
         else:
-            test_results, combined_results, failed_evaluation = process_no_input_var_case(
+            (
+                test_results,
+                combined_results,
+                failed_evaluation,
+            ) = process_no_input_var_case(
                 prompt_template, combined_results, test_results
             )
 

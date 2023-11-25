@@ -56,14 +56,14 @@ def display_presets():
 def get_prompt_options():
     return {
         "1": "Redact personally identifiable information (PII) from a given text with 'XXX' and return the redacted text.",
-        "2": "Solve a specific reasoning question.",
-        "3": "Extract phone numbers from a text and put them into a standard format.",
-        "4": "Identify and list all first and last names from a given text.",
-        "5": "Compose a haiku on a specified topic.",
-        "6": "Act as a helpful chatbot for home-office IT issues. Answer user questions using LLM general knowledge.",
-        "7": "Act as a virtual customer service agent for Anthropic with access to an FAQ document and answering a user question.",
-        "8": "Create a short rap about a specified inanimate object.",
-        "9": "Organize information from a student info text file into JSON with keys 'name', 'grade', 'gpa', 'major'.",
+        "2": "Solve the given reasoning question.",
+        "3": "Extract phone numbers from a given text and list them in a standard format.",
+        "4": "Extract and list all names from a given text.",
+        "5": "Compose a haiku on a given topic.",
+        "6": "Act as a helpful chatbot for home-office IT issues. Answer user questions using LLM general knowledge. Take a user question as input.",
+        "7": "Act as a virtual customer service agent for Anthropic with access to an FAQ document. Take a user question as input.",
+        "8": "Create a short rap about a given inanimate object.",
+        "9": "Organize information from a given student info text file into JSON with keys 'name', 'grade', 'gpa', 'major'.",
     }
 
 
@@ -263,7 +263,7 @@ def extract_test_cases(response):
 
 
 # Function to generate test cases
-def generate_test_cases(prompt):
+def generate_test_cases(prompt, var_names):
     print_info(f"\n*** Generating test cases... ***")
     test_case_generation_prompt = f"""\n\nHuman: You are an experienced prompt engineer. Your task is to create test case inputs based on a given LLM prompt. The inputs should be designed to effectively evaluate the prompt's quality, adherence to best-practices, and success in achieving its desired goal.
 
@@ -361,6 +361,11 @@ def generate_test_cases(prompt):
     <prompt_to_generate_test_cases_for>
     {prompt}
     </prompt_to_generate_test_cases_for>
+    
+    Here are the suggested variable names for the input(s) to the prompt. Read them carefully:
+    <variable_names>
+    {var_names}
+    </variable_names>
     
     Remember to match the format of the example exactly. Ensure the XML tags you use match the variable name(s) in the prompt exactly. For example, if the prompt contains <text>{{TEXT}}</text>, your test input must be written within <TEXT></TEXT> XML tags. 
     
@@ -546,7 +551,7 @@ def evaluate_response(prompt_to_eval, response_to_eval):
 
     Follow this procedure to perform your evaluation:
     1. Read the prompt carefully, focusing on its intent, format, and the specific task it is designed to elicit from the LLM.
-    2. Carefully assess the response's adherence to the prompt. Clearly document your step by step analytical process, including any deviations, hallucinations, or any other undesired behavior, however minor, from the prompt's specified instructions in <evaluation_scratchpad></evaluation_scratchpad> XML tags.
+    2. Carefully assess the response's adherence to the prompt. Clearly document your step by step analytical process, including any deviations, hallucinations, logic/reasoning mistakes or any other undesired behavior, however minor, from the prompt's specified instructions in <evaluation_scratchpad></evaluation_scratchpad> XML tags.
     3. Score the prompt's performance in generating the expected response. Mark it as 'PASS' if the response aligns perfectly with the instructions and the LLM behaves optimally. Mark it as 'FAIL' otherwise. Write your determination in <evaluation_result></evaluation_result> XML tags.
 
     Remember, the prompt you are evaluating was asked of another LLM, and the response was created by that same other LLM. Your job is to evaluate the performance. Think step by step before you answer.
@@ -652,7 +657,7 @@ def parse_xml_content(llm_output, tags_to_parse=None):
     except ET.ParseError as e:
         # print_info(f"Error parsing XML from LLM output: {e}")
         print_info("Error parsing XML from LLM output. Returning raw llm_output...")
-        return llm_output
+        return "parsing failed:" + llm_output
 
 
 # Function to generate a prompt based on the goal and test results and then clean it
@@ -665,7 +670,7 @@ def generate_and_clean_prompt(goal, test_results):
 # Function to set up test cases based on the prompt template and placeholder names
 def setup_test_cases(prompt_template, placeholder_names):
     while True:
-        test_cases = generate_test_cases(prompt_template)
+        test_cases = generate_test_cases(prompt_template, placeholder_names)
         test_cases, test_case_retry = update_variable_names(
             test_cases, placeholder_names
         )
@@ -679,9 +684,15 @@ def process_test_cases(test_cases, prompt_template, combined_results, test_resul
     results, failed_test_cases = {}, False
     print_info(f"\n*** Evaluating test cases... ***")
     for test_case in test_cases:
+        print(f"\n{test_case} input(s): ")
+        for key, val in test_cases[test_case].items():
+            print_info(f"{key}: {val}")
+
         skip_test_case, response, evaluation = handle_test_case(
             test_cases[test_case], prompt_template
         )
+        print(f"{test_case} response: ")
+        print_info(f"{response}")
         if skip_test_case:
             continue
 
@@ -756,7 +767,7 @@ def handle_test_case(test_case_data, prompt_template):
 def handle_eval_result(tc_name, eval_result):
     if tc_name == "":
         tc_name = "evaluation"
-    print(f"{tc_name}: ", end="")
+    print(f"{tc_name} result: ", end="")
     if eval_result == "FAIL":
         print_warning("FAIL")
         return True  # Indicates failure
@@ -810,7 +821,7 @@ def print_final_results(cleaned_prompt_template):
     print_info(f"\nGENERATED PROMPT:")
     print(f"{cleaned_prompt_template}")
     print_success(f"\n\n*** Prompt generation and evaluation complete. ***")
-    print_info(f"*** See more in results.json file ***")
+    print_info(f"*** See more in results.json file ***\n")
 
 
 # Main execution flow

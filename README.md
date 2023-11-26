@@ -18,7 +18,7 @@ cd [Project-Directory]
 pip install -r requirements.txt
 ```
 
-## Configuration
+### Configuration
 Set your Anthropic API key in a `.env` file:
 ```
 ANTHROPIC_API_KEY=your_api_key_here

@@ -137,7 +137,7 @@ class PromptProcessor:
             Assistant: """
 
         prompt_generation_response = self.api.send_request_to_claude(
-            prompt_generation_prompt, max_tokens_to_sample=150000, temperature=0.1
+            prompt_generation_prompt, temperature=0.1
         )
         if prompt_generation_response:
             generated_prompt = extract_generated_prompt(prompt_generation_response)
@@ -215,7 +215,7 @@ class PromptProcessor:
         Assistant: """
 
         placeholder_identification_response = self.api.send_request_to_claude(
-            placeholder_identification_prompt, max_tokens_to_sample=100, temperature=0
+            placeholder_identification_prompt, temperature=0
         )
         if placeholder_identification_response:
             return extract_variable_placeholders(placeholder_identification_response)
@@ -334,7 +334,7 @@ class PromptProcessor:
         Assistant: """
 
         test_cases_response = self.api.send_request_to_claude(
-            test_case_generation_prompt, max_tokens_to_sample=150000, temperature=0.2
+            test_case_generation_prompt, temperature=0.2
         )
         if test_cases_response:
             test_cases = extract_test_cases(test_cases_response)
@@ -379,7 +379,7 @@ class PromptProcessor:
         """
 
         evaluation_response = self.api.send_request_to_claude(
-            evaluation_prompt, max_tokens_to_sample=5000, temperature=0
+            evaluation_prompt, temperature=0
         )
         if evaluation_response:
             return evaluation_response
@@ -389,7 +389,7 @@ class PromptProcessor:
     # Function to send a request with the prompt to Claude and receive a response
     def execute_prompt(self, prompt):
         response = self.api.send_request_to_claude(
-            prompt, max_tokens_to_sample=100000, temperature=0
+            prompt, temperature=0
         )
         evaluation = self.evaluate_response(prompt, response)
         return response, evaluation

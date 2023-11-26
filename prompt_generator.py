@@ -12,52 +12,50 @@ from prompt_processing import PromptProcessor
 from user_input import prompt_user
 
 
-# Main execution flow
 def main():
     config = load_configuration()
-    # Check if the API key is available
-    if not config.get("anthropic_api_key"):
+    api_key = config.get("anthropic_api_key")
+
+    # Early exit if no API key found
+    if not api_key:
         print_error("No API key found.")
         return
-    anthropic_api_key = config["anthropic_api_key"]
 
-    api = AnthropicAPI(anthropic_api_key)
+    api = AnthropicAPI(api_key)
     prompt_processor = PromptProcessor(api)
-
     goal = prompt_user()
+
     combined_results, test_results = [], {}
-    input_vars_detected, first_iteration = False, True
-    test_cases = None
+    test_cases, first_iteration = None, True
 
     while True:
-        (
-            prompt_template,
-            cleaned_prompt_template,
-        ) = prompt_processor.generate_and_clean_prompt(goal, test_results)
-        placeholder_names = prompt_processor.identify_placeholders(prompt_template)
-        input_vars_detected = placeholder_names[0] != "None"
+        prompt_template, cleaned_prompt = prompt_processor.generate_and_clean_prompt(
+            goal, test_results
+        )
+        placeholders = prompt_processor.identify_placeholders(prompt_template)
 
-        # Generate test cases only on the first iteration and if input variables are detected
+        input_vars_detected = placeholders[0] != "None"
         if first_iteration and input_vars_detected:
             test_cases = prompt_processor.setup_test_cases(
-                prompt_template, placeholder_names
+                prompt_template, placeholders
             )
 
         if input_vars_detected:
-            if test_cases is not None:  # Proceed if test_cases are available
-                (
-                    test_results,
-                    combined_results,
-                    failed_test_cases,
-                ) = prompt_processor.process_test_cases(
-                    test_cases, prompt_template, combined_results, test_results
-                )
-            else:
+            # Skip processing if no test cases are defined
+            if not test_cases:
                 print_warning("No test cases available.")
                 break
 
-            if not failed_test_cases:
-                print_success(f"\n*** All test cases passed! ***")
+            (
+                test_results,
+                combined_results,
+                failed_tests,
+            ) = prompt_processor.process_test_cases(
+                test_cases, prompt_template, combined_results, test_results
+            )
+
+            if not failed_tests:
+                print_success("\n*** All test cases passed! ***")
                 break
         else:
             (
@@ -70,14 +68,14 @@ def main():
 
             if not failed_evaluation:
                 print_success(
-                    f"\n*** Evaluation passed! No input variables were detected in this prompt. ***"
+                    "\n*** Evaluation passed! No input variables detected. ***"
                 )
                 break
 
-        first_iteration = False  # Set to False after the first iteration
+        first_iteration = False
 
     save_results_to_json(combined_results)
-    print_final_results(cleaned_prompt_template)
+    print_final_results(cleaned_prompt)
 
 
 if __name__ == "__main__":

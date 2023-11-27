@@ -44,7 +44,7 @@ class AnthropicAPI:
             print_warning(f"Completion stopped unexpectedly. Reason: '{stop_reason}'")
             return None
 
-        if len(response) < 10 and "no" in response.lower() or "\n\nNo " in response:
+        if len(response) < 10 and "no" in response.lower():
             # TODO: Figure out what's going on here
             print_error("Completion failed.")
             return None

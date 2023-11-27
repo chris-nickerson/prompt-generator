@@ -28,7 +28,7 @@ Clone the repository and install dependencies:
 git clone https://github.com/chris-nickerson/claude-prompt-generator.git
 cd claude-prompt-generator
 pip install -r requirements.txt
-
+```
 
 ### Configuration
 

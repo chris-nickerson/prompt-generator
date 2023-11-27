@@ -13,8 +13,6 @@ from prompt_processing_utils import (
     parse_results_for_file,
 )
 
-NUM_TEST_CASES = 5
-
 
 class PromptProcessor:
     def __init__(self, api_client):
@@ -132,7 +130,7 @@ class PromptProcessor:
             Generate a prompt based on the following prompt description. Read it carefully:
             Prompt Description: ```{prompt_description}```
             
-            Remember to use XML best-practices if you decide to use XML tags in your response. Think step by step and double check your prompt against the procedure and examples before it's finalized.
+            Your prompt should be clear and direct and you should always utilize prompt engineering best-practices. Think step by step and double check your prompt against the procedure and examples before it's finalized.
 
             Assistant: """
 
@@ -146,12 +144,16 @@ class PromptProcessor:
             print_info(f"*** Generated prompt. ***")
             print(f"{clean_prompt(generated_prompt)}")
             return generated_prompt
-        else:
-            return "prompt generation failed."
+        else:  # Prompt generation failed
+            print_error("Prompt generation failed.")
+            return None
 
     # Function to generate a prompt based on the goal and test results and then clean it
     def generate_and_clean_prompt(self, goal, test_results):
         prompt_template = self.generate_prompt(goal, test_results)
+        if prompt_template is None:
+            # Prompt generation failed
+            return None, None
         cleaned_prompt_template = clean_prompt(prompt_template)
         return prompt_template, cleaned_prompt_template
 
@@ -220,16 +222,17 @@ class PromptProcessor:
         if placeholder_identification_response:
             return extract_variable_placeholders(placeholder_identification_response)
         else:
-            return "variable placeholder identification failed."
+            print_error("Variable placeholder identification failed.")
+            return None
 
     # Function to generate test cases
-    def generate_test_cases(self, prompt, var_names):
+    def generate_test_cases(self, num_test_cases, prompt, var_names):
         print_info(f"\n*** Generating test cases... ***")
         test_case_generation_prompt = f"""\n\nHuman: You are an experienced prompt engineer. Your task is to create test case inputs based on a given LLM prompt. The inputs should be designed to effectively evaluate the prompt's quality, adherence to best-practices, and success in achieving its desired goal.
 
         Follow this procedure to generate test cases:
         1. Read the prompt carefully, focusing on its intent, goal, and task it is designed to elicit from the LLM. Document your understanding of the prompt in <prompt_analysis></prompt_analysis> XML tags.
-        2. Generate {NUM_TEST_CASES} test cases that can be used to assess how well the prompt achieves its goal. Ensure they are diverse and cover different aspects of the prompt. The test cases should attempt to reveal areas where the prompt can be improved. Write your numbered test cases in <test_case_#></test_case_#> XML tags. Inside these tags, use additional tags that specify the name of the variable your input is represented by. 
+        2. Generate {num_test_cases} test cases that can be used to assess how well the prompt achieves its goal. Ensure they are diverse and cover different aspects of the prompt. The test cases should attempt to reveal areas where the prompt can be improved. Write your numbered test cases in <test_case_#></test_case_#> XML tags. Inside these tags, use additional tags that specify the name of the variable your input is represented by. 
         
         Use the following examples to format your test cases. Follow this format precisely.
         <examples>
@@ -341,12 +344,17 @@ class PromptProcessor:
             print_info(f"*** Generated {len(test_cases)} test cases. ***")
             return test_cases
         else:
-            return "test case generation failed."
+            print_error("Test case generation failed.")
+            return None
 
     # Function to set up test cases based on the prompt template and placeholder names
-    def setup_test_cases(self, prompt_template, placeholder_names):
+    def setup_test_cases(self, num_tc, prompt_template, placeholder_names):
         while True:
-            test_cases = self.generate_test_cases(prompt_template, placeholder_names)
+            test_cases = self.generate_test_cases(
+                num_tc, prompt_template, placeholder_names
+            )
+            if test_cases is None:
+                return None
             test_cases, test_case_retry = update_variable_names(
                 test_cases, placeholder_names
             )
@@ -384,14 +392,18 @@ class PromptProcessor:
         if evaluation_response:
             return evaluation_response
         else:
-            return "Evaluation failed."
+            print_error("Self-Evaluation failed.") # This is an error, not a failed test case
+            return None
 
     # Function to send a request with the prompt to Claude and receive a response
     def execute_prompt(self, prompt):
-        response = self.api.send_request_to_claude(
-            prompt, temperature=0
-        )
+        response = self.api.send_request_to_claude(prompt, temperature=0)
+        if response is None:
+            print_error("Prompt execution failed.")
+            return None, None
         evaluation = self.evaluate_response(prompt, response)
+        if evaluation is None:
+            return None, None
         return response, evaluation
 
     # Function to handle each test case: executing the prompt and processing the response
@@ -409,6 +421,8 @@ class PromptProcessor:
         loaded_prompt = load_prompt(prompt_template, test_case_data)
         loaded_prompt = clean_prompt(loaded_prompt)
         response, evaluation = self.execute_prompt(loaded_prompt)
+        if response is None and evaluation is None:
+            return False, None, None
         return False, response, evaluation
 
     # This function processes the test cases, evaluates responses, and stores results.
@@ -425,6 +439,8 @@ class PromptProcessor:
             skip_test_case, response, evaluation = self.handle_test_case(
                 test_cases[test_case], prompt_template
             )
+            if response is None and evaluation is None:
+                return None, None, None
             print(f"{test_case} response: ")
             print_info(f"{response}")
             if skip_test_case:
@@ -462,6 +478,8 @@ class PromptProcessor:
         results = {}
         prompt = clean_prompt(prompt_template)
         response, evaluation = self.execute_prompt(prompt)
+        if response is None and evaluation is None:
+            return None, None, None
         eval_result = extract_eval_result(evaluation)
         eval_failed = handle_eval_result("", eval_result)
         test_results = update_test_results(0, prompt, "None", response, evaluation)

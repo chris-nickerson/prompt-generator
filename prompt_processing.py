@@ -39,7 +39,7 @@ class PromptProcessor:
                     test_cases_and_evaluations += f"<Original_Prompt>\n{failed_eval_results[failed_eval]['prompt']}\n</Original_Prompt>\n"
                 test_cases_and_evaluations += f"<Test_Case_{i+1}>\n<Input{i+1}>\n{failed_eval_results[failed_eval]['input']}\n</Input{i+1}>\n<Response_{i+1}>\n{failed_eval_results[failed_eval]['response']}\n</Response_{i+1}>\n<Evaluation_{i+1}>\n{failed_eval_results[failed_eval]['evaluation']}\n</Evaluation_{i+1}>\n</Test_Case_{i+1}>"
 
-            prompt_generation_prompt = f"""\n\nHuman: You are an experienced prompt engineer. Your task is to improve an existing LLM prompt in order to elicit an LLM to achieve the specified goal and/or assumes the specified role. The prompt should adherence to best-practices, and produce the best possible likelihood of success. You will be provided with an existing prompt, test cases that failed, and evaluations for those test cases. You will improve the prompt to address the failed test cases and evaluations.
+            prompt_generation_prompt = f"""You are an experienced prompt engineer. Your task is to improve an existing LLM prompt in order to elicit an LLM to achieve the specified goal and/or assumes the specified role. The prompt should adherence to best-practices, and produce the best possible likelihood of success. You will be provided with an existing prompt, test cases that failed, and evaluations for those test cases. You will improve the prompt to address the failed test cases and evaluations.
 
             Follow this procedure to generate the prompt:
             1. Read the prompt description carefully, focusing on its intent, goal, and intended functionality it is designed to elicit from the LLM. Document your understanding of the prompt description and brainstorm in <prompt_generation_scratchpad></prompt_generation_scratchpad> XML tags.
@@ -55,12 +55,10 @@ class PromptProcessor:
             {test_cases_and_evaluations}
             </test_cases_and_evaluations>
             
-            Remember to put your new prompt within <generated_prompt></generated_prompt> XML tags. Think step by step and double check your prompt against the procedure and failed input(s) before it's finalized.
-
-            Assistant: """
+            Remember to put your new prompt within <generated_prompt></generated_prompt> XML tags. Think step by step and double check your prompt against the procedure and failed input(s) before it's finalized."""
         else:
             print_info(f"\n*** Generating an initial prompt... ***")
-            prompt_generation_prompt = f"""\n\nHuman: You are an experienced prompt engineer. Your task is to read a prompt description written by a user and craft a prompt that will successfully elicit an LLM to achieve the specified goal or task. The prompt should adherence to best-practices, and produce the best possible likelihood of success.
+            prompt_generation_prompt = f"""You are an experienced prompt engineer. Your task is to read a prompt description written by a user and craft a prompt that will successfully elicit an LLM to achieve the specified goal or task. The prompt should adherence to best-practices, and produce the best possible likelihood of success.
 
             Follow this procedure to generate the prompt:
             1. Read the prompt description carefully, focusing on its intent, goal, and intended functionality it is designed to elicit from the LLM. Document your understanding of the prompt description and brainstorm in <prompt_generation_scratchpad></prompt_generation_scratchpad> XML tags.
@@ -130,9 +128,7 @@ class PromptProcessor:
             Generate a prompt based on the following prompt description. Read it carefully:
             Prompt Description: ```{prompt_description}```
             
-            Your prompt should be clear and direct and you should always utilize prompt engineering best-practices. Think step by step and double check your prompt against the procedure and examples before it's finalized.
-
-            Assistant: """
+            Your prompt should be clear and direct and you should always utilize prompt engineering best-practices. Think step by step and double check your prompt against the procedure and examples before it's finalized."""
 
         prompt_generation_response = self.api.send_request_to_claude(
             prompt_generation_prompt, temperature=0.1
@@ -159,7 +155,7 @@ class PromptProcessor:
 
     # Function to identify variable placeholders in the prompt Claude generated
     def identify_placeholders(self, prompt):
-        placeholder_identification_prompt = f"""\n\nHuman: Please follow these steps to extract any variable placeholders in the text:
+        placeholder_identification_prompt = f"""Please follow these steps to extract any variable placeholders in the text:
 
         1. Carefully read the text within the <text> tags.
         2. Look for variable placeholders, which are usually surrounded by curly braces. 
@@ -212,9 +208,7 @@ class PromptProcessor:
         {prompt}
         </text>
         
-        Think step by step before you answer.
-
-        Assistant: """
+        Think step by step before you answer."""
 
         placeholder_identification_response = self.api.send_request_to_claude(
             placeholder_identification_prompt, temperature=0
@@ -228,7 +222,7 @@ class PromptProcessor:
     # Function to generate test cases
     def generate_test_cases(self, num_test_cases, prompt, var_names):
         print_info(f"\n*** Generating test cases... ***")
-        test_case_generation_prompt = f"""\n\nHuman: You are an experienced prompt engineer. Your task is to create test case inputs based on a given LLM prompt. The inputs should be designed to effectively evaluate the prompt's quality, adherence to best-practices, and success in achieving its desired goal.
+        test_case_generation_prompt = f"""You are an experienced prompt engineer. Your task is to create test case inputs based on a given LLM prompt. The inputs should be designed to effectively evaluate the prompt's quality, adherence to best-practices, and success in achieving its desired goal.
 
         Follow this procedure to generate test cases:
         1. Read the prompt carefully, focusing on its intent, goal, and task it is designed to elicit from the LLM. Document your understanding of the prompt in <prompt_analysis></prompt_analysis> XML tags.
@@ -332,9 +326,7 @@ class PromptProcessor:
         
         Remember to match the format of the example exactly. Ensure the XML tags you use match the variable name(s) in the prompt exactly. For example, if the prompt contains <text>{{TEXT}}</text>, your test input must be written within <TEXT></TEXT> XML tags. 
         
-        Double check your test cases against the procedure and examples before you answer.
-
-        Assistant: """
+        Double check your test cases against the procedure and examples before you answer."""
 
         test_cases_response = self.api.send_request_to_claude(
             test_case_generation_prompt, temperature=0.2
@@ -364,7 +356,7 @@ class PromptProcessor:
 
     # Function to evaluate Claude's response
     def evaluate_response(self, prompt_to_eval, response_to_eval):
-        evaluation_prompt = f"""\n\nHuman: Your task is to evaluate the adherence of a response to the associated prompt. Failure of the response to adhere perfectly to the instructions in the prompt can indicate flawed prompt engineering.
+        evaluation_prompt = f"""Your task is to evaluate the adherence of a response to the associated prompt. Failure of the response to adhere perfectly to the instructions in the prompt can indicate flawed prompt engineering.
         
         Here is the prompt you need to evaluate. Read it carefully:
         <prompt_to_eval>
@@ -381,10 +373,7 @@ class PromptProcessor:
         2. Carefully assess the response's adherence to the prompt. Clearly document your step by step analytical process, including any deviations, hallucinations, logic/reasoning mistakes or any other undesired behavior, however minor, from the prompt's specified instructions in <evaluation_scratchpad></evaluation_scratchpad> XML tags.
         3. Score the prompt's performance in generating the expected response. Mark it as 'PASS' if the response aligns perfectly with the instructions and the LLM behaves optimally. Mark it as 'FAIL' otherwise. Write your determination in <evaluation_result></evaluation_result> XML tags.
 
-        Remember, the prompt you are evaluating was asked of another LLM, and the response was created by that same other LLM. Your job is to evaluate the performance. Think step by step before you answer.
-        
-        Assistant: 
-        """
+        Remember, the prompt you are evaluating was asked of another LLM, and the response was created by that same other LLM. Your job is to evaluate the performance. Think step by step before you answer."""
 
         evaluation_response = self.api.send_request_to_claude(
             evaluation_prompt, temperature=0
@@ -392,7 +381,9 @@ class PromptProcessor:
         if evaluation_response:
             return evaluation_response
         else:
-            print_error("Self-Evaluation failed.") # This is an error, not a failed test case
+            print_error(
+                "Self-Evaluation failed."
+            )  # This is an error, not a failed test case
             return None
 
     # Function to send a request with the prompt to Claude and receive a response

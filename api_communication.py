@@ -1,4 +1,4 @@
-from anthropic import Anthropic
+from anthropic import Anthropic, HUMAN_PROMPT, AI_PROMPT
 from utils import print_warning, print_error
 import json
 
@@ -12,13 +12,17 @@ class AnthropicAPI:
         self, prompt, max_tokens_to_sample=100000, temperature=0.05
     ):
         try:
-            completion = self.anthropic.completions.create(
-                prompt=prompt,
-                model="claude-2.1",  # Model version can be adjusted as needed
-                max_tokens_to_sample=max_tokens_to_sample,
-                temperature=temperature,
+            completion = self.anthropic.messages.create(
+                model="claude-3-sonnet-20240229",
+                max_tokens=1024,
+                messages=[
+                    {
+                        "role": "user",
+                        "content": prompt,
+                    }
+                ],
             )
-            response = completion.completion
+            response = completion.content[0].text
             stop_reason = completion.stop_reason
 
             return self._process_completion_response(response, stop_reason)
@@ -40,7 +44,7 @@ class AnthropicAPI:
 
     @staticmethod
     def _process_completion_response(response, stop_reason):
-        if stop_reason != "stop_sequence":
+        if stop_reason not in ["stop_sequence", "end_turn"]:
             print_warning(f"Completion stopped unexpectedly. Reason: '{stop_reason}'")
             return None
 

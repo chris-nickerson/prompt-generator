@@ -22,12 +22,12 @@ Consider the following when entering your prompt description:
 
 ## Installation and Setup
 
-Clone the repository and install dependencies:
+Clone the repository and install dependencies using Poetry:
 
 ```bash
 git clone https://github.com/chris-nickerson/claude-prompt-generator.git
 cd claude-prompt-generator
-pip install -r requirements.txt
+poetry install
 ```
 
 ### Configuration

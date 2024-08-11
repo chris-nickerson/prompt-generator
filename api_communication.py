@@ -1,6 +1,7 @@
+import asyncio
 from typing import Optional
-from anthropic import Anthropic
-from utils import print_error
+from anthropic import Anthropic, AsyncAnthropic
+from utils import print_error, print_warning
 
 
 class AnthropicAPI:
@@ -8,8 +9,12 @@ class AnthropicAPI:
         self.api_key = api_key
         self.anthropic = Anthropic(api_key=self.api_key)
 
-    def send_request_to_claude(
-        self, prompt: str, max_tokens_to_sample: int = 4000, temperature: float = 0.05
+    async def send_request_to_claude(
+        self,
+        prompt: str,
+        max_tokens_to_sample: int = 4000,
+        temperature: float = 0.05,
+        max_retries: int = 10,
     ) -> Optional[str]:
         """
         Sends a request to the Anthropic API to generate a response based on the given prompt.
@@ -22,25 +27,37 @@ class AnthropicAPI:
         Returns:
             Optional[str]: The generated response from the Claude API, or None if an error occurred.
         """
-        try:
-            completion = self.anthropic.messages.create(
-                model="claude-3-sonnet-20240229",
-                max_tokens=max_tokens_to_sample,
-                temperature=temperature,
-                messages=[
-                    {
-                        "role": "user",
-                        "content": prompt,
-                    }
-                ],
-            )
-            return completion.content[0].text
-        except Exception as e:
-            if hasattr(e, "status_code"):
-                self._handle_http_error(e)
-            else:
-                print_error(f"An unexpected error occurred: {e}")
-            return None
+        rate_limit_sleep_time = 0.5
+        for _ in range(max_retries):
+            try:
+                async with AsyncAnthropic() as client:
+                    completion = await client.messages.create(
+                        model="claude-3-sonnet-20240229",
+                        max_tokens=max_tokens_to_sample,
+                        temperature=temperature,
+                        messages=[
+                            {
+                                "role": "user",
+                                "content": prompt,
+                            }
+                        ],
+                    )
+                    return completion.content[0].text
+            except Exception as e:
+                if hasattr(e, "status_code"):
+                    if e.status_code == 429:  # Anthropic API rate limit exceeded
+                        print_warning(
+                            f"Rate limit exceeded. Waiting for {rate_limit_sleep_time} seconds..."
+                        )
+                        await asyncio.sleep(rate_limit_sleep_time)
+                        rate_limit_sleep_time *= 1.5
+                    else:
+                        self._handle_http_error(e)
+                else:
+                    print_error(f"An unexpected error occurred: {e}")
+                    return None
+        print_error("Max retries exceeded. Failed to generate a response.")
+        return None
 
     def _handle_http_error(self, error: Exception) -> None:
         """

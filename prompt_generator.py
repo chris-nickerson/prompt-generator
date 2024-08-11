@@ -24,10 +24,8 @@ def main() -> None:
 
     api_client = AnthropicAPI(api_key)
     prompt_processor = PromptProcessor(api_client)
-    # goal = prompt_user()
-    goal = "The prompt should guide the LLM to: Extract phone numbers from an input text and list them in a standard format."
-    # num_test_cases = get_test_cases_count()
-    num_test_cases = 10
+    goal = prompt_user()
+    num_test_cases = get_test_cases_count()
 
     combined_results, test_results = [], {}
     test_cases, first_iteration = None, True

@@ -1,8 +1,8 @@
+import asyncio
 from typing import Dict, List, Optional, Tuple, Union
 from utils import print_success, print_info, print_warning, print_error
 from prompt_processing_utils import (
     extract_generated_prompt,
-    extract_variable_placeholders,
     extract_test_cases,
     update_variable_names,
     load_prompt,
@@ -18,7 +18,7 @@ class PromptProcessor:
     def __init__(self, api_client):
         self.api = api_client
 
-    def generate_prompt(
+    async def generate_prompt(
         self, prompt_description: str, failed_eval_results: Dict[str, str]
     ) -> Optional[str]:
         """
@@ -30,7 +30,7 @@ class PromptProcessor:
             Optional[str]: The generated prompt or None if prompt generation failed.
         """
         if failed_eval_results:
-            print_info(f"\n*** Updating prompt... ***")
+            print_warning(f"\n*** Iterating prompt due to failed test case(s)... ***")
             # If there are failed evaluation results, build string that includes them
             failed_prompt = failed_inputs = failed_responses = failed_evaluations = []
             test_cases_and_evaluations = ""
@@ -47,7 +47,8 @@ class PromptProcessor:
 
             prompt_generation_prompt = f"""
 # CONTEXT #
-You are an experienced prompt engineer. Your task is to improve an existing LLM prompt in order to elicit an LLM to achieve the specified goal and/or assumes the specified role. The prompt should adherence to best-practices, and produce the best possible likelihood of success. You will be provided with an existing prompt, test cases that failed, and evaluations for those test cases. You will improve the prompt to address the failed test cases and evaluations.
+You are an experienced prompt engineer. Your task is to improve an existing LLM prompt in order to elicit an LLM to achieve the specified goal and/or assumes the specified role.
+The prompt should adherence to best-practices, and produce the best possible likelihood of success. You will be provided with an existing prompt, test cases that failed, and evaluations for those test cases. You will improve the prompt to address the failed test cases and evaluations.
 
 # PROMPT DESCRIPTION #
 Here is the prompt description that drives the prompt.
@@ -60,6 +61,10 @@ Here are the test cases and evaluations. Read them carefully:
 <test_cases_and_evaluations>
 {test_cases_and_evaluations}
 </test_cases_and_evaluations>
+
+# GUIDELINES #
+Always lean toward simplicity over complexity, and attempt to update the prompt using clear instructions instead of an excessive use of examples
+High-performing prompts are often organized with Context, Examples, Input Data, Instructions, Additional Guidelines, and Response Format in this order, but you may adjust as needed to achieve the best results
 
 # INSTRUCTIONS #
 Follow this procedure to generate the prompt:
@@ -145,6 +150,7 @@ Note: Never directly address the issue or task in the prompt. Instead, assume th
 # ADDITIONAL GUIDELINES #
 Your prompt should be clear and direct and you should always utilize prompt engineering best-practices. Think step by step and double check your prompt against the procedure and examples before it's finalized.
 Remember to always use prompt engineering best-practices in an effort to craft a prompt that will guide the LLM to best achieve the specified goal or task.
+High-performing prompts are often organized with Context, Examples, Input Data, Instructions, Additional Guidelines, and Response Format in this order, but you may adjust as needed to achieve the best results
 
 # PROMPT DESCRIPTION #
 Generate a prompt based on the following prompt description. Read it carefully:
@@ -153,7 +159,7 @@ Generate a prompt based on the following prompt description. Read it carefully:
 </PROMPT_DESCRIPTION>
 """
 
-        prompt_generation_response = self.api.send_request_to_claude(
+        prompt_generation_response = await self.api.send_request_to_claude(
             prompt_generation_prompt, temperature=0.1
         )
         if prompt_generation_response:
@@ -166,7 +172,7 @@ Generate a prompt based on the following prompt description. Read it carefully:
             print_error("Prompt generation failed.")
             return None
 
-    def generate_prompt_handler(
+    async def generate_prompt_handler(
         self, goal: str, test_results: Dict[str, str]
     ) -> Optional[str]:
         """
@@ -179,92 +185,11 @@ Generate a prompt based on the following prompt description. Read it carefully:
         Returns:
             Optional[str]: The generated and cleaned prompt, or None if prompt generation fails.
         """
-        prompt_template = self.generate_prompt(goal, test_results)
+        prompt_template = await self.generate_prompt(goal, test_results)
         # If prompt generation fails, return None
         return prompt_template if prompt_template else None
 
-    def identify_placeholders(self, prompt: str) -> Optional[str]:
-        """
-        Identify variable placeholders in a given LLM prompt.
-
-        Args:
-            prompt (str): The LLM prompt to process.
-
-        Returns:
-            Optional[str]: The extracted variable placeholders, or None if identification failed.
-        """
-
-        placeholder_identification_prompt = f"""
-# CONTEXT #
-You are an experienced prompt engineer. Your task is to identify variable placeholders in a given LLM prompt. Variable placeholders are used to represent input variables that will be provided to the LLM when the prompt is executed. Identifying these placeholders is crucial for understanding the structure of the prompt and the expected input variables.
-
-# EXAMPLES #
-Use the following examples to strengthen your understanding of the task:
-<EXAMPLES>
-<EXAMPLE>
-<TEXT>
-Hello, my name is {{NAME}}. I am {{AGE}} years old.
-</TEXT>
-
-<PLACEHOLDERS>
-{{NAME}}
-{{AGE}}
-</PLACEHOLDERS>
-</EXAMPLE>
-<EXAMPLE>
-<TEXT>
-Please read the following document carefully. You will be asked about it later.
-<doc>
-{{FAQ_document}}
-</doc>
-</TEXT>
-
-<PLACEHOLDERS>
-{{FAQ_document}}
-</PLACEHOLDERS>
-</EXAMPLE>
-<EXAMPLE>
-<TEXT>
-Please read the following text carefully. You will be asked questions about it later.
-<TEXT>
-{{TEXT}}
-</TEXT>
-</TEXT>
-
-<PLACEHOLDERS>
-{{TEXT}}
-</PLACEHOLDERS>
-</EXAMPLE>
-</EXAMPLES>
-
-# INSTRUCTIONS #
-Please follow these steps to extract any variable placeholders in the text:
-
-1. Carefully read the text within the <TEXT> tags.
-2. Look for variable placeholders, which are usually surrounded by curly braces. 
-3. Extract the text between the curly braces. 
-4. Make a list containing each unique variable placeholder name you found.
-5. Put the list of placeholder names within <PLACEHOLDERS> XML tags.
-
-If there are no variable placeholders, write "None" inside the XML tags.
-Think step by step before you answer.
-
-Here is the text you need to process. Read it carefully:
-<TEXT>
-{prompt}
-</TEXT>
-"""
-
-        placeholder_identification_response = self.api.send_request_to_claude(
-            placeholder_identification_prompt, temperature=0
-        )
-        if placeholder_identification_response:
-            return extract_variable_placeholders(placeholder_identification_response)
-        else:
-            print_error("Variable placeholder identification failed.")
-            return None
-
-    def generate_test_cases(
+    async def generate_test_cases(
         self, num_test_cases: int, prompt: str, var_names: List[str]
     ) -> Union[Dict[str, Dict[str, str]], None]:
         """
@@ -369,15 +294,6 @@ I want to know the names of all the people who work at Acme Dynamics.
 </EXAMPLE>
 </EXAMPLES>
 
-# INSTRUCTIONS #
-Follow this procedure to generate test cases:
-1. Read the prompt carefully, focusing on its intent, goal, and task it is designed to elicit from the LLM. Document your understanding of the prompt in <prompt_analysis></prompt_analysis> XML tags.
-2. Generate {num_test_cases} test cases that can be used to assess how well the prompt achieves its goal. Ensure they are diverse and cover different aspects of the prompt. The test cases should attempt to reveal areas where the prompt can be improved. Write your numbered test cases in <TEST_CASE_#></TEST_CASE_#> XML tags. Inside these tags, use additional tags that specify the name of the variable your input is represented by. 
-
-# ADDITIONAL GUIDELINES #
-Remember to match the format of the example exactly. Ensure the XML tags you use match the variable name(s) in the prompt exactly. For example, if the prompt contains <TEXT>{{TEXT}}</TEXT>, your test input must be written within <TEXT></TEXT> XML tags. 
-Double check your test cases against the procedure and examples before you answer.
-
 # PROMPT #
 Here is the prompt for which you need to generate test cases. Read it carefully:
 <PROMPT>
@@ -385,13 +301,22 @@ Here is the prompt for which you need to generate test cases. Read it carefully:
 </PROMPT>
 
 # VARIABLE NAMES #
-Here are the suggested variable names for the input(s) to the prompt. Read them carefully:
+It is essential that you use the following variable name(s) in your test cases. You should use these variable names for both XML tags and the variable names themselves:
 <VARIABLE_NAMES>
 {var_names}
 </VARIABLE_NAMES>
+
+# INSTRUCTIONS #
+Follow this procedure to generate test cases:
+1. Read the PROMPT carefully, focusing on its intent, goal, and task it is designed to elicit from the LLM. Document your understanding of the PROMPT in <PROMPT_ANALYSIS></PROMPT_ANALYSIS> XML tags.
+2. Generate {num_test_cases} test cases that can be used to assess how well the prompt achieves its goal. Ensure they are diverse and cover different aspects of the prompt. The test cases should attempt to reveal areas where the prompt can be improved. Write your numbered test cases in <TEST_CASE_#></TEST_CASE_#> XML tags. Inside these tags, use additional tags that specify the name of the variable your input is represented by. 
+
+# ADDITIONAL GUIDELINES #
+Remember to match the format of the example exactly. Ensure the XML tags you use match the variable name(s) in the prompt exactly. For example, if the prompt contains <DOCUMENT>{{TEXT}}</DOCUMENT>, your test input must be written within <TEXT></TEXT> XML tags. 
+Double check your test cases against the procedure and examples before you answer.
 """
 
-        test_cases_response = self.api.send_request_to_claude(
+        test_cases_response = await self.api.send_request_to_claude(
             TEST_CASE_generation_prompt, temperature=0.2
         )
         if test_cases_response:
@@ -404,7 +329,7 @@ Here are the suggested variable names for the input(s) to the prompt. Read them 
             print_error("Test case generation failed.")
             return None
 
-    def setup_test_cases(
+    async def setup_test_cases(
         self, num_tc: int, prompt_template: str, placeholder_names: List[str]
     ) -> Union[Dict[str, str], None]:
         """
@@ -420,7 +345,7 @@ Here are the suggested variable names for the input(s) to the prompt. Read them 
 
         """
         while True:
-            test_cases = self.generate_test_cases(
+            test_cases = await self.generate_test_cases(
                 num_tc, prompt_template, placeholder_names
             )
             if test_cases is None:
@@ -433,7 +358,7 @@ Here are the suggested variable names for the input(s) to the prompt. Read them 
         print_success(f"*** Set up {len(test_cases)} test cases. ***")
         return test_cases
 
-    def evaluate_response(
+    async def evaluate_response(
         self, prompt_to_eval: str, response_to_eval: str
     ) -> Optional[str]:
         """
@@ -471,7 +396,7 @@ Follow this procedure to perform your evaluation:
 Remember, the prompt you are evaluating was asked of another LLM, and the response was created by that same other LLM. Your job is to evaluate the performance. Think step by step before you answer.
 """
 
-        evaluation_response = self.api.send_request_to_claude(
+        evaluation_response = await self.api.send_request_to_claude(
             evaluation_prompt, temperature=0
         )
         if evaluation_response:
@@ -482,7 +407,7 @@ Remember, the prompt you are evaluating was asked of another LLM, and the respon
             )  # This is an error, not a failed test case
             return None
 
-    def execute_prompt(self, prompt: str) -> Tuple[Optional[str], Optional[str]]:
+    async def execute_prompt(self, prompt: str) -> Tuple[Optional[str], Optional[str]]:
         """
         Executes a prompt by sending a request to Claude and evaluates the response.
 
@@ -496,23 +421,24 @@ Remember, the prompt you are evaluating was asked of another LLM, and the respon
 
                 If the prompt execution fails or the evaluation is not available, None is returned for both values.
         """
-        response = self.api.send_request_to_claude(prompt, temperature=0)
+        response = await self.api.send_request_to_claude(prompt, temperature=0)
         if response is None:
             print_error("Prompt execution failed.")
             return None, None
-        evaluation = self.evaluate_response(prompt, response)
+        evaluation = await self.evaluate_response(prompt, response)
         if evaluation is None:
             return None, None
         return response, evaluation
 
-    def handle_test_case(
-        self, TEST_CASE_data: Dict[str, str], prompt_template: str
+    async def handle_test_case(
+        self, test_case: str, test_case_data: Dict[str, str], prompt_template: str
     ) -> Tuple[bool, Optional[str], Optional[str]]:
         """
         Handles a single test case by executing the prompt and processing the response.
 
         Args:
-            TEST_CASE_data (Dict[str, str]): The data for the test case.
+            test_case (str): The name of the test case.
+            test_case_data (Dict[str, str]): The data for the test case.
             prompt_template (str): The template for the prompt.
 
         Returns:
@@ -521,8 +447,11 @@ Remember, the prompt you are evaluating was asked of another LLM, and the respon
                 - The response received from Claude.
                 - The evaluation of the response.
         """
+        print(f"\n{test_case} input(s): ")
+        for key, val in test_case_data.items():
+            print_info(f"{key}: {val}")
         skip_test_case = False
-        for val in TEST_CASE_data.values():
+        for val in test_case_data.values():
             if val is None or val == "None":
                 print_warning(f"Skipping test case because it contains invalid input.")
                 skip_test_case = True
@@ -531,13 +460,13 @@ Remember, the prompt you are evaluating was asked of another LLM, and the respon
         if skip_test_case:
             return True, None, None
 
-        loaded_prompt = load_prompt(prompt_template, TEST_CASE_data)
-        response, evaluation = self.execute_prompt(loaded_prompt)
+        loaded_prompt = load_prompt(prompt_template, test_case_data)
+        response, evaluation = await self.execute_prompt(loaded_prompt)
         if response is None and evaluation is None:
             return False, None, None
         return False, response, evaluation
 
-    def process_test_cases(
+    async def process_test_cases(
         self,
         test_cases: Dict[str, str],
         prompt_template: str,
@@ -563,19 +492,23 @@ Remember, the prompt you are evaluating was asked of another LLM, and the respon
             failed_test_cases (bool): A boolean indicating whether any test cases failed.
         """
         results, failed_test_cases = {}, False
-        print_info(f"\n*** Evaluating test cases... ***")
-        for test_case in test_cases:
-            print(f"\n{test_case} input(s): ")
-            for key, val in test_cases[test_case].items():
-                print_info(f"{key}: {val}")
-
-            skip_test_case, response, evaluation = self.handle_test_case(
-                test_cases[test_case], prompt_template
+        print_info(f"\n*** Evaluating test cases concurrently... ***")
+        test_case_handling_tasks = [
+            asyncio.create_task(
+                self.handle_test_case(test_case, test_cases[test_case], prompt_template)
             )
-            if response is None and evaluation is None:
-                return None, None, None
-            print(f"{test_case} response: ")
-            print_info(f"{response}")
+            for test_case in test_cases
+        ]
+        test_case_results = await asyncio.gather(*test_case_handling_tasks)
+        for test_case, (skip_test_case, response, evaluation) in zip(
+            test_cases.keys(), test_case_results
+        ):
+            if not response or not evaluation:
+                skip_test_case = True
+                # return None, None, None
+            if response:
+                print(f"{test_case} response: ")
+                print_info(f"{response}")
             if skip_test_case:
                 continue
 
@@ -604,7 +537,7 @@ Remember, the prompt you are evaluating was asked of another LLM, and the respon
 
         return test_results, combined_results, failed_test_cases
 
-    def process_no_input_var_case(
+    async def process_no_input_var_case(
         self, prompt_template: str, combined_results: List, test_results: Dict[str, str]
     ) -> Union[Dict[str, str], List, bool]:
         """
@@ -619,7 +552,7 @@ Remember, the prompt you are evaluating was asked of another LLM, and the respon
             Union[Dict[str, str], List, bool]: The processed test results, combined results, and evaluation status.
         """
         results = {}
-        response, evaluation = self.execute_prompt(prompt_template)
+        response, evaluation = await self.execute_prompt(prompt_template)
         if response is None and evaluation is None:
             return None, None, None
         eval_result = extract_eval_result(evaluation)

@@ -1,3 +1,5 @@
+import re
+import asyncio
 from utils import (
     print_success,
     print_info,
@@ -11,7 +13,7 @@ from prompt_processing import PromptProcessor
 from user_input import prompt_user, get_test_cases_count
 
 
-def main() -> None:
+async def main() -> None:
     """
     Main function that generates prompts, processes test cases, and prints results.
 
@@ -31,19 +33,23 @@ def main() -> None:
     test_cases, first_iteration = None, True
 
     while True:
-        prompt_template = prompt_processor.generate_prompt_handler(goal, test_results)
+        prompt_template = await prompt_processor.generate_prompt_handler(
+            goal, test_results
+        )
         if prompt_template is None:
             return None  # Prompt generation failed
         if num_test_cases == 0:
             print_info("\n*** No test cases to evaluate. ***")
             break
-        placeholders = prompt_processor.identify_placeholders(prompt_template)
-        if not placeholders:
-            return None  # Placeholder identification failed
+        # placeholders = await prompt_processor.identify_placeholders(prompt_template)
+        placeholders = re.findall(r"{\w+}", prompt_template)
+
+        # if not placeholders:
+        #     return None  # Placeholder identification failed
         # placeholders[0] == "None" indicates no input variables are detected in this prompt
-        input_vars_detected = placeholders[0] != "None"
+        input_vars_detected = bool(placeholders)
         if first_iteration and input_vars_detected:
-            test_cases = prompt_processor.setup_test_cases(
+            test_cases = await prompt_processor.setup_test_cases(
                 num_test_cases, prompt_template, placeholders
             )
             if not test_cases:
@@ -59,7 +65,7 @@ def main() -> None:
                 test_results,
                 combined_results,
                 failed_tests,
-            ) = prompt_processor.process_test_cases(
+            ) = await prompt_processor.process_test_cases(
                 test_cases, prompt_template, combined_results, test_results
             )
             if not test_results and not combined_results and not failed_tests:
@@ -73,7 +79,7 @@ def main() -> None:
                 test_results,
                 combined_results,
                 failed_evaluation,
-            ) = prompt_processor.process_no_input_var_case(
+            ) = await prompt_processor.process_no_input_var_case(
                 prompt_template, combined_results, test_results
             )
             if (
@@ -95,4 +101,4 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())

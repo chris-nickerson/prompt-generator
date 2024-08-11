@@ -26,37 +26,6 @@ def extract_generated_prompt(response: str) -> Optional[str]:
     return None
 
 
-def extract_variable_placeholders(response: str) -> Union[str, List[str]]:
-    """
-    Extracts variable placeholders from a given response.
-
-    Args:
-        response (str): The response string to search for variable placeholders.
-
-    Returns:
-        Union[str, List[str]]: The extracted variable placeholders as a list of strings, or None if no placeholders are found.
-
-    Raises:
-        None
-
-    """
-    try:
-        match = re.search(
-            r"<PLACEHOLDERS>(.*?)</PLACEHOLDERS>", response, re.DOTALL | re.IGNORECASE
-        )
-        if match:
-            # Extracting the text found between the tags
-            text = match.group(1).strip()
-            # Splitting the text into a list of placeholder names
-            return text.split("\n")
-        # return "No variable placeholder XML tags found."
-        print_error("No variable placeholder XML tags found.")
-        return None
-    except Exception as e:
-        print_error(f"Error while extracting variable placeholders: {e}")
-        return None
-
-
 def preprocess_tags(xml_string: str) -> str:
     """
     Preprocesses the XML string by replacing spaces in tag names with a unique placeholder.

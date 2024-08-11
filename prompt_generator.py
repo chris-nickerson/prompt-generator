@@ -41,12 +41,8 @@ async def main() -> None:
         if num_test_cases == 0:
             print_info("\n*** No test cases to evaluate. ***")
             break
-        # placeholders = await prompt_processor.identify_placeholders(prompt_template)
         placeholders = re.findall(r"{\w+}", prompt_template)
 
-        # if not placeholders:
-        #     return None  # Placeholder identification failed
-        # placeholders[0] == "None" indicates no input variables are detected in this prompt
         input_vars_detected = bool(placeholders)
         if first_iteration and input_vars_detected:
             test_cases = await prompt_processor.setup_test_cases(

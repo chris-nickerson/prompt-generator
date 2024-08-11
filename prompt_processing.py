@@ -323,7 +323,6 @@ Double check your test cases against the procedure and examples before you answe
             test_cases = extract_test_cases(test_cases_response)
             if not test_cases:
                 return None
-            # print_success(f"*** Generated {len(test_cases)} test cases. ***")
             return test_cases
         else:
             print_error("Test case generation failed.")

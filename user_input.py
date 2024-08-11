@@ -2,6 +2,12 @@ from utils import print_info
 
 
 def prompt_user():
+    """
+    Prompts the user to choose between entering a custom prompt description or viewing preset examples.
+
+    Returns:
+        str: The generated prompt description based on user's choice.
+    """
     print_info("\n*** Claude Prompt Generator ***")
     print_info("\nThis tool can help engineer effective prompts for Claude.")
     print_info("\nWould you like to:")
@@ -25,6 +31,13 @@ def prompt_user():
 
 
 def display_presets():
+    """
+    Displays a list of preset examples and prompts the user to select one.
+
+    Returns:
+        str: The selected prompt option.
+    """
+    pass
     prompt_options = get_prompt_options()
     print_info("\nSelect a preset example:")
     for key, value in prompt_options.items():
@@ -40,6 +53,17 @@ def display_presets():
 
 
 def display_example_prompts():
+    """
+    Display a list of example prompts.
+
+    This function prints a list of example prompts, each starting with a hyphen ("-").
+    The example prompts are predefined and stored in the `example_prompts` list.
+
+    Example prompts:
+    - Identify and list key points from an input meeting transcript.
+    - Rewrite an email to be more formal. Take the email as input.
+    - Extract dates and event names from an input text about historical events and store them in XML tags.
+    """
     example_prompts = [
         "Identify and list key points from an input meeting transcript.",
         "Rewrite an email to be more formal. Take the email as input.",
@@ -50,6 +74,12 @@ def display_example_prompts():
 
 
 def get_prompt_options():
+    """
+    Returns a dictionary of prompt options.
+
+    Returns:
+        dict: A dictionary where the keys are numbers representing the prompt options, and the values are the descriptions of each option.
+    """
     return {
         "1": "Redact personally identifiable information from an input text with 'XXX'.",
         "2": "Solve the input reasoning question.",
@@ -62,6 +92,15 @@ def get_prompt_options():
 
 
 def get_test_cases_count():
+    """
+    Prompts the user to enter the number of test cases to generate.
+
+    Returns:
+        int: The number of test cases entered by the user.
+
+    Raises:
+        ValueError: If the user enters an invalid input (not a number).
+    """
     while True:
         try:
             count = int(input("\nEnter the number of test cases to generate (0-10): "))

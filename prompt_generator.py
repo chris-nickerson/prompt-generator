@@ -20,7 +20,7 @@ async def main() -> None:
     Returns:
         None
     """
-    MAX_ITERATIONS = 5
+    MAX_ITERATIONS = 10
     provider = get_provider()
     config = load_configuration(provider)
     api_key = config.get("api_key")

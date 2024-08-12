@@ -8,9 +8,9 @@ from utils import (
     save_results_to_json,
 )
 from config import load_configuration
-from api_communication import AnthropicAPI
+from api_communication import AnthropicAPI, WriterAPI
 from prompt_processing import PromptProcessor
-from user_input import prompt_user, get_test_cases_count
+from user_input import prompt_user, get_test_cases_count, get_provider
 
 
 async def main() -> None:
@@ -20,11 +20,19 @@ async def main() -> None:
     Returns:
         None
     """
-    ...
-    config = load_configuration()
-    api_key = config.get("anthropic_api_key")
+    MAX_ITERATIONS = 5
+    provider = get_provider()
+    config = load_configuration(provider)
+    api_key = config.get("api_key")
 
-    api_client = AnthropicAPI(api_key)
+    if provider == "Anthropic":
+        api_client = AnthropicAPI(api_key)
+    elif provider == "Writer":
+        api_client = WriterAPI(api_key)
+    else:
+        print_warning("Invalid provider. Exiting...")
+        return
+
     prompt_processor = PromptProcessor(api_client)
     goal = prompt_user()
     num_test_cases = get_test_cases_count()
@@ -32,7 +40,7 @@ async def main() -> None:
     combined_results, test_results = [], {}
     test_cases, first_iteration = None, True
 
-    while True:
+    for _ in range(MAX_ITERATIONS):
         prompt_template = await prompt_processor.generate_prompt_handler(
             goal, test_results
         )
@@ -94,6 +102,8 @@ async def main() -> None:
 
     save_results_to_json(combined_results)
     print_final_results(prompt_template)
+    if _ == MAX_ITERATIONS - 1:
+        print_warning("\n*** Max iterations reached. ***")
 
 
 if __name__ == "__main__":

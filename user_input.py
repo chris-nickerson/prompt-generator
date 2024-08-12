@@ -8,8 +8,8 @@ def prompt_user():
     Returns:
         str: The generated prompt description based on user's choice.
     """
-    print_info("\n*** Claude Prompt Generator ***")
-    print_info("\nThis tool can help engineer effective prompts for Claude.")
+    print_info("\n*** Prompt Generator ***")
+    print_info("\nThis tool can help engineer effective prompts.")
     print_info("\nWould you like to:")
     print_info("1. Enter a custom prompt description")
     print_info("2. View preset examples")
@@ -19,8 +19,8 @@ def prompt_user():
     if user_choice == "1":
         print_info("\nHere are a few examples to inspire you:")
         display_example_prompts()
-        print_info(f"\nInclude any input variables Claude should consider\n")
-        custom_prompt = input("This prompt should guide Claude to: ")
+        print_info(f"\nInclude any input variables the model should consider\n")
+        custom_prompt = input("This prompt should guide the LLM to: ")
         print_info(f"\nCustom prompt description entered: {custom_prompt}")
         return "The prompt should guide the LLM to: " + custom_prompt
     elif user_choice == "2":
@@ -89,6 +89,26 @@ def get_prompt_options():
         "6": "Act as a virtual customer service agent for Anthropic with access to an FAQ document. Take a user question as input.",
         "7": "Extract information from a student info text file into JSON with keys 'name', 'grade', 'gpa', 'major'.",
     }
+
+
+def get_provider():
+    """Prompts the user to select LLM provider, Anthropic or Writer.
+
+    Returns:
+        str: The selected provider.
+    """
+    while True:
+        print_info("\nSelect the LLM provider:")
+        print_info("1. Anthropic")
+        print_info("2. Writer")
+        user_input = input("\nEnter the number of your choice: ")
+
+        if user_input == "1":
+            return "Anthropic"
+        elif user_input == "2":
+            return "Writer"
+        else:
+            print_info("\nInvalid selection. Please try again.")
 
 
 def get_test_cases_count():

@@ -1,8 +1,8 @@
-# Prompt Generation Tool for Claude
+# Prompt Generation Tool
 
 ## Overview
 
-This tool is designed to demonstrate how Claude can be utilized for generating effective prompts. You provide a high-level task for Claude to perform, and the tool attempts to automate the generation, testing, and iterative improvement of a prompt to complete the task reliably. The aim is to provide a solid starting point for any given task by producing an initial prompt, which you can then tweak according to your specific needs.
+This tool is designed to help you create effective prompts. You provide a high-level task for an LLM to perform, and the tool attempts to automate the generation, testing, and iterative improvement of a prompt to complete the task reliably. The aim is to provide a solid starting point for any given task by producing an initial prompt, which you can then tweak according to your specific needs.
 
 ## Key Features
 
@@ -16,9 +16,9 @@ This tool is designed to demonstrate how Claude can be utilized for generating e
 
 Consider the following when entering your prompt description:
 
-- **Clarity**: Be clear and specific about the task Claude should perform. Vague descriptions can lead to unpredictable results.
+- **Clarity**: Be clear and specific about the task the model should perform. Vague descriptions can lead to unpredictable results.
 - **Objective Definition**: Define the objective clearly. What is the intended output or result of the prompt?
-- **Specify Required Inputs**: Clearly indicate any specific inputs required for the task. For instance, if you need Claude to extract information from a particular type of text, mention that this text should be taken as input. The tool is designed to automatically generate relevant test text based on your specified inputs.
+- **Specify Required Inputs**: Clearly indicate any specific inputs required for the task. For instance, if you need the model to extract information from a particular type of text, mention that this text should be taken as input. The tool is designed to automatically generate relevant test text based on your specified inputs.
 
 ## Installation and Setup
 
@@ -31,11 +31,13 @@ poetry install
 ```
 
 ### Configuration
+This tool allows you to choose between LLM providers: Anthropic and Writer
 
-Set your Anthropic API key in a `.env` file:
+Set your Anthropic and/or Writer API key in a `.env` file:
 
-```
+```plaintext
 ANTHROPIC_API_KEY=your_api_key_here
+WRITER_API_KEY=your_api_key_here
 ```
 
 ## Usage Instructions

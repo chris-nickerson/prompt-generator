@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "claude-prompt-generator"
+name = "prompt-generator"
 version = "0.1.0"
 description = ""
 authors = ["Chris Nickerson <chris.nickerson@writer.com>"]
@@ -7,11 +7,12 @@ readme = "README.md"
 package-mode = false
 
 [tool.poetry.dependencies]
-python = "^3.9"
+python = "^3.10"
 colorama = "^0.4.6"
 anthropic = "^0.32.0"
 python-dotenv = "^1.0.1"
 asyncio = "^3.4.3"
+writer-sdk = "^0.5.0"
 
 
 [build-system]

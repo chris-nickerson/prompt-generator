@@ -850,7 +850,26 @@ h2 = ["h2 (>=4,<5)"]
 socks = ["pysocks (>=1.5.6,!=1.5.7,<2.0)"]
 zstd = ["zstandard (>=0.18.0)"]
 
+[[package]]
+name = "writer-sdk"
+version = "0.5.0"
+description = "The official Python library for the writer API"
+optional = false
+python-versions = ">=3.7"
+files = [
+    {file = "writer_sdk-0.5.0-py3-none-any.whl", hash = "sha256:654e08fa0040126b8a8ae2468a9f2185997d94926a9322cee6278a721d098598"},
+    {file = "writer_sdk-0.5.0.tar.gz", hash = "sha256:984f289f2576f8fbaec6893e9c83a0810a3084fbc536cc22666e0f620e8eff64"},
+]
+
+[package.dependencies]
+anyio = ">=3.5.0,<5"
+distro = ">=1.7.0,<2"
+httpx = ">=0.23.0,<1"
+pydantic = ">=1.9.0,<3"
+sniffio = "*"
+typing-extensions = ">=4.7,<5"
+
 [metadata]
 lock-version = "2.0"
-python-versions = "^3.9"
-content-hash = "a89b827491aa4a2de354101deb2c7d81a38736a5ea308fe2a9027caa4b01ca6f"
+python-versions = "^3.10"
+content-hash = "010386b83c0dc6b0b96c891b7e82230657e4055a46ace507af5113d9aed409a8"

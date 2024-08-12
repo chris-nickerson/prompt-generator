@@ -71,7 +71,8 @@ Follow this procedure to generate the prompt:
 1. Read the prompt description carefully, focusing on its intent, goal, and intended functionality it is designed to elicit from the LLM. Document your understanding of the prompt description and brainstorm in <PROMPT_GENERATION_SCRATCHPAD></PROMPT_GENERATION_SCRATCHPAD> XML tags.
 2. Read the failed inputs, responses, and evaluations carefully. Document your understanding of the failed inputs, responses, and evaluations in <LESSONS_LEARNED></LESSONS_LEARNED> XML tags.
 3. Using best practices, including organizing information in XML tags when necessary, generate a new iteration of the prompt that incorporates lessons learned.
-4. Write your new prompt in <GENERATED_PROMPT></GENERATED_PROMPT> XML tags. The updated prompt must continue to take the same input variable(s) or text as the original prompt.
+4. Write your improved prompt, which incorporates updates according to your lessons learned, within <GENERATED_PROMPT></GENERATED_PROMPT> XML tags. The updated prompt must continue to take the same input variable(s) or text as the original prompt.
+5. Describe how your prompt changes incorporate your lessons learned within <REFLECTION><REFLECTION> XML tags.
 """
         else:
             print_info(f"\n*** Generating an initial prompt... ***")
@@ -159,11 +160,13 @@ Generate a prompt based on the following prompt description. Read it carefully:
 </PROMPT_DESCRIPTION>
 """
 
-        prompt_generation_response = await self.api.send_request_to_claude(
+        prompt_generation_response = await self.api.send_request_to_model(
             prompt_generation_prompt, temperature=0.1
         )
         if prompt_generation_response:
-            generated_prompt = extract_generated_prompt(prompt_generation_response)
+            generated_prompt = extract_generated_prompt(
+                prompt_generation_response.replace("UPDATED_PROMPT", "GENERATED_PROMPT")
+            )
             if not generated_prompt:
                 return None
             print_success(f"*** Generated prompt. ***")
@@ -204,7 +207,7 @@ Generate a prompt based on the following prompt description. Read it carefully:
             Union[Dict[str, Dict[str, str]], None]: A dictionary containing the generated test cases, or None if test case generation failed.
         """
         print_info(f"*** Generating test cases... ***")
-        TEST_CASE_generation_prompt = f"""
+        test_case_generation_prompt = f"""
 # CONTEXT #
 You are an experienced prompt engineer. Your task is to create test case inputs based on a given LLM prompt. The inputs should be designed to effectively evaluate the prompt's quality, adherence to best-practices, and success in achieving its desired goal.
 
@@ -312,12 +315,13 @@ Follow this procedure to generate test cases:
 2. Generate {num_test_cases} test cases that can be used to assess how well the prompt achieves its goal. Ensure they are diverse and cover different aspects of the prompt. The test cases should attempt to reveal areas where the prompt can be improved. Write your numbered test cases in <TEST_CASE_#></TEST_CASE_#> XML tags. Inside these tags, use additional tags that specify the name of the variable your input is represented by. 
 
 # ADDITIONAL GUIDELINES #
-Remember to match the format of the example exactly. Ensure the XML tags you use match the variable name(s) in the prompt exactly. For example, if the prompt contains <DOCUMENT>{{TEXT}}</DOCUMENT>, your test input must be written within <TEXT></TEXT> XML tags. 
 Double check your test cases against the procedure and examples before you answer.
+Remember to match the format of the example exactly. Ensure the XML tags you use match the variable name(s) in the prompt exactly. For example, if the prompt contains <DOCUMENT>{{TEXT}}</DOCUMENT>, your test input must be written within <TEXT></TEXT> XML tags. 
+In this case, the variable name(s) are exactly: "{var_names}", which must be reflected in your XML tags.
 """
 
-        test_cases_response = await self.api.send_request_to_claude(
-            TEST_CASE_generation_prompt, temperature=0.2
+        test_cases_response = await self.api.send_request_to_model(
+            test_case_generation_prompt, temperature=0.2
         )
         if test_cases_response:
             test_cases = extract_test_cases(test_cases_response)
@@ -372,7 +376,7 @@ Double check your test cases against the procedure and examples before you answe
         """
         evaluation_prompt = f"""
 # CONTEXT #
-Your task is to evaluate the adherence of a response to the associated prompt. Failure of the response to adhere perfectly to the instructions in the prompt can indicate flawed prompt engineering.
+Your task is to evaluate the adherence of a response to the associated prompt. Failure of the response to adhere to the instructions in the prompt can indicate flawed prompt engineering.
 
 # PROMPT #       
 Here is the prompt you need to evaluate. Read it carefully:
@@ -395,7 +399,7 @@ Follow this procedure to perform your evaluation:
 Remember, the prompt you are evaluating was asked of another LLM, and the response was created by that same other LLM. Your job is to evaluate the performance. Think step by step before you answer.
 """
 
-        evaluation_response = await self.api.send_request_to_claude(
+        evaluation_response = await self.api.send_request_to_model(
             evaluation_prompt, temperature=0
         )
         if evaluation_response:
@@ -408,19 +412,19 @@ Remember, the prompt you are evaluating was asked of another LLM, and the respon
 
     async def execute_prompt(self, prompt: str) -> Tuple[Optional[str], Optional[str]]:
         """
-        Executes a prompt by sending a request to Claude and evaluates the response.
+        Executes a prompt by sending a request to the LLM provider and evaluates the response.
 
         Args:
             prompt (str): The prompt to be executed.
 
         Returns:
             Tuple[Optional[str], Optional[str]]: A tuple containing the response and evaluation.
-                - The response (str): The response received from Claude.
+                - The response (str): The response received from the model.
                 - The evaluation (str): The evaluation of the response.
 
                 If the prompt execution fails or the evaluation is not available, None is returned for both values.
         """
-        response = await self.api.send_request_to_claude(prompt, temperature=0)
+        response = await self.api.send_request_to_model(prompt, temperature=0)
         if response is None:
             print_error("Prompt execution failed.")
             return None, None
@@ -443,7 +447,7 @@ Remember, the prompt you are evaluating was asked of another LLM, and the respon
         Returns:
             Tuple[bool, Optional[str], Optional[str]]: A tuple containing:
                 - A boolean indicating whether the test case should be skipped.
-                - The response received from Claude.
+                - The response received from the model.
                 - The evaluation of the response.
         """
         print(f"\n{test_case} input(s): ")

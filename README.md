@@ -25,8 +25,8 @@ Consider the following when entering your prompt description:
 Clone the repository and install dependencies using Poetry:
 
 ```bash
-git clone https://github.com/chris-nickerson/claude-prompt-generator.git
-cd claude-prompt-generator
+git clone https://github.com/chris-nickerson/prompt-generator.git
+cd prompt-generator
 poetry install
 ```
 

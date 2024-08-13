@@ -16,7 +16,7 @@ def load_anthropic_configuration() -> Dict[str, str]:
     if not api_key:
         error_msg = "No Anthropic API key found. Set it in a .env file."
         print_error(error_msg)
-        raise ValueError(error_msg)
+        exit(1)
     return {"api_key": api_key}
 
 
@@ -32,7 +32,7 @@ def load_writer_configuration() -> Dict[str, str]:
     if not api_key:
         error_msg = "No Writer API key found. Set it in a .env file."
         print_error(error_msg)
-        raise ValueError(error_msg)
+        exit(1)
     return {"api_key": api_key}
 
 
@@ -56,4 +56,4 @@ def load_configuration(provider: str) -> Dict[str, str]:
             f"Invalid provider: {provider}. Please select 'Anthropic' or 'Writer'."
         )
         print_error(error_msg)
-        raise ValueError(error_msg)
+        exit(1)

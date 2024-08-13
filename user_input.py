@@ -1,4 +1,4 @@
-from utils import print_info
+from utils import print_info, print_success, print_warning
 
 
 def prompt_user():
@@ -8,11 +8,11 @@ def prompt_user():
     Returns:
         str: The generated prompt description based on user's choice.
     """
-    print_info("\n*** Prompt Generator ***")
-    print_info("\nThis tool can help engineer effective prompts.")
-    print_info("\nWould you like to:")
-    print_info("1. Enter a custom prompt description")
-    print_info("2. View preset examples")
+    print_warning("\n\n\n*** Prompt Generator ***")
+    print_warning("\nThis tool can help engineer effective prompts.")
+    print_success("\nWould you like to:")
+    print("1. Enter a custom prompt description")
+    print("2. View preset examples")
 
     user_choice = input("\nEnter your choice (1 or 2): ")
 
@@ -21,12 +21,12 @@ def prompt_user():
         display_example_prompts()
         print_info(f"\nInclude any input variables the model should consider\n")
         custom_prompt = input("This prompt should guide the LLM to: ")
-        print_info(f"\nCustom prompt description entered: {custom_prompt}")
+        print_success(f"\nCustom prompt description entered: {custom_prompt}")
         return "The prompt should guide the LLM to: " + custom_prompt
     elif user_choice == "2":
         return display_presets()
     else:
-        print_info("\nInvalid choice. Please enter 1 or 2.")
+        print_warning("\nInvalid choice. Please enter 1 or 2.")
         return prompt_user()  # Recursive call for invalid input
 
 
@@ -39,16 +39,16 @@ def display_presets():
     """
     pass
     prompt_options = get_prompt_options()
-    print_info("\nSelect a preset example:")
+    print_success("\nSelect a preset example:")
     for key, value in prompt_options.items():
-        print_info(f"{key}. {value}")
+        print(f"{key}. {value}")
     user_input = input("\nEnter the number of your choice: ")
 
     if user_input in prompt_options:
-        print_info(f"\nYou have selected: {prompt_options[user_input]}")
+        print_success(f"\nYou have selected: {prompt_options[user_input]}")
         return "The prompt should guide the LLM to: " + prompt_options[user_input]
     else:
-        print_info("\nInvalid selection. Please try again.")
+        print_warning("\nInvalid selection. Please try again.")
         return display_presets()  # Recursive call for invalid input
 
 
@@ -70,7 +70,7 @@ def display_example_prompts():
         "Extract dates and event names from an input text about historical events and store them in XML tags.",
     ]
     for example in example_prompts:
-        print_info(f"- {example}")
+        print(f"- {example}")
 
 
 def get_prompt_options():
@@ -86,7 +86,7 @@ def get_prompt_options():
         "3": "Extract phone numbers from an input text and list them in a standard format.",
         "4": "Extract and list all last names from a given input text.",
         "5": "Act as a helpful chatbot for home-office IT issues. Answer user questions using LLM general knowledge. Take a user question as input.",
-        "6": "Act as a virtual customer service agent for Anthropic with access to an FAQ document. Take a user question as input.",
+        "6": "Act as a virtual customer service agent for Writer.com with access to an FAQ document. Take a user question as input.",
         "7": "Extract information from a student info text file into JSON with keys 'name', 'grade', 'gpa', 'major'.",
     }
 
@@ -98,9 +98,12 @@ def get_provider():
         str: The selected provider.
     """
     while True:
-        print_info("\nSelect the LLM provider:")
-        print_info("1. Anthropic")
-        print_info("2. Writer")
+        print_success("\nSelect the LLM provider:")
+        print_info(
+            "Note: You will need an API key for the selected provider in a .env file.\n"
+        )
+        print("1. Anthropic")
+        print("2. Writer")
         user_input = input("\nEnter the number of your choice: ")
 
         if user_input == "1":
@@ -123,10 +126,10 @@ def get_test_cases_count():
     """
     while True:
         try:
-            count = int(input("\nEnter the number of test cases to generate (0-10): "))
-            if 0 <= count <= 10:
+            count = int(input("\nEnter the number of test cases to generate (0-5): "))
+            if 0 <= count <= 5:
                 return count
             else:
-                print_info("Please enter a number between 0 and 10.")
+                print_warning("Please enter a number between 0 and 5.")
         except ValueError:
-            print_info("Invalid input. Please enter a number.")
+            print_warning("Invalid input. Please enter a number.")

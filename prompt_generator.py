@@ -21,6 +21,8 @@ async def main() -> None:
         None
     """
     MAX_ITERATIONS = 10
+    goal = prompt_user()
+    num_test_cases = get_test_cases_count()
     provider = get_provider()
     config = load_configuration(provider)
     api_key = config.get("api_key")
@@ -34,8 +36,6 @@ async def main() -> None:
         return
 
     prompt_processor = PromptProcessor(api_client)
-    goal = prompt_user()
-    num_test_cases = get_test_cases_count()
 
     combined_results, test_results = [], {}
     test_cases, first_iteration = None, True
@@ -59,12 +59,14 @@ async def main() -> None:
             if not test_cases:
                 return None  # Test case generation failed
 
+        if input_vars_detected and not first_iteration:
+            print_info("\n*** Re-evaluating test cases... ***")
+
         if input_vars_detected:
             # Skip processing if no test cases are defined
             if not test_cases:
                 print_warning("No test cases available.")
                 break
-
             (
                 test_results,
                 combined_results,

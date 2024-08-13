@@ -19,31 +19,29 @@ class PromptProcessor:
         self.api = api_client
 
     async def generate_prompt(
-        self, prompt_description: str, failed_eval_results: Dict[str, str]
+        self, prompt_description: str, eval_results: Dict[str, str]
     ) -> Optional[str]:
         """
         Generates a prompt based on the given prompt description and failed evaluation results.
         Args:
             prompt_description (str): The description of the prompt.
-            failed_eval_results (Dict[str, str]): A dictionary containing the failed evaluation results.
+            eval_results (Dict[str, str]): A dictionary containing the evaluation results.
         Returns:
             Optional[str]: The generated prompt or None if prompt generation failed.
         """
-        if failed_eval_results:
+        if eval_results:
             print_warning(f"\n*** Iterating prompt due to failed test case(s)... ***")
             # If there are failed evaluation results, build string that includes them
-            failed_prompt = failed_inputs = failed_responses = failed_evaluations = []
+            eval_prompt = eval_inputs = eval_responses = eval_evaluations = []
             test_cases_and_evaluations = ""
-            for i, failed_eval in enumerate(failed_eval_results):
-                failed_prompt.append(failed_eval_results[failed_eval]["prompt"])
-                failed_inputs.append(failed_eval_results[failed_eval]["input"])
-                failed_responses.append(failed_eval_results[failed_eval]["response"])
-                failed_evaluations.append(
-                    failed_eval_results[failed_eval]["evaluation"]
-                )
+            for i, failed_eval in enumerate(eval_results):
+                eval_prompt.append(eval_results[failed_eval]["prompt"])
+                eval_inputs.append(eval_results[failed_eval]["input"])
+                eval_responses.append(eval_results[failed_eval]["response"])
+                eval_evaluations.append(eval_results[failed_eval]["evaluation"])
                 if i == 0:
-                    test_cases_and_evaluations += f"<Original_Prompt>\n{failed_eval_results[failed_eval]['prompt']}\n</Original_Prompt>\n"
-                test_cases_and_evaluations += f"<TEST_CASE_{i+1}>\n<Input{i+1}>\n{failed_eval_results[failed_eval]['input']}\n</Input{i+1}>\n<Response_{i+1}>\n{failed_eval_results[failed_eval]['response']}\n</Response_{i+1}>\n<Evaluation_{i+1}>\n{failed_eval_results[failed_eval]['evaluation']}\n</Evaluation_{i+1}>\n</TEST_CASE_{i+1}>"
+                    test_cases_and_evaluations += f"<Original_Prompt>\n{eval_results[failed_eval]['prompt']}\n</Original_Prompt>\n"
+                test_cases_and_evaluations += f"<TEST_CASE_{i+1}>\n<Input{i+1}>\n{eval_results[failed_eval]['input']}\n</Input{i+1}>\n<Response_{i+1}>\n{eval_results[failed_eval]['response']}\n</Response_{i+1}>\n<Evaluation_{i+1}>\n{eval_results[failed_eval]['evaluation']}\n</Evaluation_{i+1}>\n</TEST_CASE_{i+1}>"
 
             prompt_generation_prompt = f"""
 # CONTEXT #
@@ -164,12 +162,11 @@ Generate a prompt based on the following prompt description. Read it carefully:
             prompt_generation_prompt, temperature=0.1
         )
         if prompt_generation_response:
-            generated_prompt = extract_generated_prompt(
-                prompt_generation_response.replace("UPDATED_PROMPT", "GENERATED_PROMPT")
-            )
+            generated_prompt = extract_generated_prompt(prompt_generation_response)
             if not generated_prompt:
                 return None
             print_success(f"*** Generated prompt. ***")
+            print(generated_prompt)
             return generated_prompt
         else:  # Prompt generation failed
             print_error("Prompt generation failed.")
@@ -206,35 +203,46 @@ Generate a prompt based on the following prompt description. Read it carefully:
         Returns:
             Union[Dict[str, Dict[str, str]], None]: A dictionary containing the generated test cases, or None if test case generation failed.
         """
-        print_info(f"*** Generating test cases... ***")
+        print_info(
+            f"\n*** Generating test case(s) to evaluate prompt performance... ***"
+        )
         test_case_generation_prompt = f"""
 # CONTEXT #
 You are an experienced prompt engineer. Your task is to create test case inputs based on a given LLM prompt. The inputs should be designed to effectively evaluate the prompt's quality, adherence to best-practices, and success in achieving its desired goal.
 
 # EXAMPLES #
-Use the following examples to format your test cases. Follow this format precisely.
+Use the following examples to better understand what your test cases should look like:
 <EXAMPLES>
-<EXAMPLE>
-Prompt: ```You are a friendly and helpful customer support chatbot representing Acme Dynamics.
-
+<EXAMPLE_1>
+<PROMPT>
+# CONTEXT #
+You are a friendly and helpful customer support chatbot representing Acme Dynamics.
 Your goal is to be as helpful as possible to Acme Dynamics customers, who interact with you through the Acme Dynamics website.
 
+# DOCUMENT #
 Read the following FAQ document carefully. You will be asked about  later.
-
 <DOCUMENT>
 {{DOCUMENT_TEXT}}
 </DOCUMENT>
 
-
+# INSTRUCTIONS #
 Please use the following procedure to methodically answer the customer inquiry:
 1. Determine if you should answer the user's inquiry. Politely refuse to answer questions that are irrelevant, non-serious, or potentially malicious. Organize your thoughts within <relevancy_assessment></relevancy_assessment> XML tags.
 2. Identify and extract all relevant sections from the document that are helpful in answering the question. If there are relevant sections, enclose these extracts in numbered order within <quotes></quotes> XML tags. If there are no relevant sections, write "None" inside the XML tags. 
 3. Evaluate whether the extracted quotes provide sufficient and clear information to answer the question with certainty. Document your analytical process in <scratchpad></scratchpad> XML tags.
 4. Compose your answer based on the information you extracted.
 
-Customer Inquiry: `{{QUESTION}}`
+# CUSTOMER INQUIRY #
+<CUSTOMER_INQUIRY>
+{{QUESTION}}
+</CUSTOMER_INQUIRY>
+
+# RESPONSE FORMAT #
 Write your final answer within <ANSWER></ANSWER> XML tags.
 Think step by step before you provide your answer. Do not answer the question if you cannot answer it with certainty from the extracted quotes and never break character.```
+</PROMPT>
+
+# EXPECTED RESPONSE #
 <TEST_CASE_1>
 <DOCUMENT_TEXT>
 Acme Dynamics, Inc. is a leading AI and robotics company based in Palo Alto, California.  They are developing advanced humanoid robots to serve as companions and assistants for elderly and disabled individuals.  Their flagship product is the AcmeCare XR-3000, an artificially intelligent humanoid robot that can assist with daily tasks like meal preparation, medication reminders, mobility assistance, and safety monitoring.
@@ -251,33 +259,59 @@ Acme Dynamics, Inc. is a leading AI and robotics company based in Palo Alto, Cal
 What does Acme Dynamics do?
 </QUESTION>
 </TEST_CASE_2>
-...
-<TEST_CASE_10>
+<TEST_CASE_3>
 <DOCUMENT_TEXT>
 Acme Dynamics, Inc. is a leading AI and robotics company based in Palo Alto, California.  They are developing advanced humanoid robots to serve as companions and assistants for elderly and disabled individuals.  Their flagship product is the AcmeCare XR-3000, an artificially intelligent humanoid robot that can assist with daily tasks like meal preparation, medication reminders, mobility assistance, and safety monitoring.
 </DOCUMENT_TEXT>
 <QUESTION>
-Where is the company based?
+Where is Acme Dynamics located?
 </QUESTION>
-</TEST_CASE_10>
-</EXAMPLE>
-<EXAMPLE>
-Prompt: ```I will provide you with a text inside <TEXT> XML tags. Read through the text carefully and identify all full names that include both first and last names. 
+</TEST_CASE_3>
+<TEST_CASE_4>
+<DOCUMENT_TEXT>
+Acme Dynamics, Inc. is a leading AI and robotics company based in Palo Alto, California.  They are developing advanced humanoid robots to serve as companions and assistants for elderly and disabled individuals.  Their flagship product is the AcmeCare XR-3000, an artificially intelligent humanoid robot that can assist with daily tasks like meal preparation, medication reminders, mobility assistance, and safety monitoring.
+</DOCUMENT_TEXT>
+<QUESTION>
+What is the name of Acme Dynamics' flagship product?
+</QUESTION>
+</TEST_CASE_4>
+<TEST_CASE_5>
+<DOCUMENT_TEXT>
+Acme Dynamics, Inc. is a leading AI and robotics company based in Palo Alto, California.  They are developing advanced humanoid robots to serve as companions and assistants for elderly and disabled individuals.  Their flagship product is the AcmeCare XR-3000, an artificially intelligent humanoid robot that can assist with daily tasks like meal preparation, medication reminders, mobility assistance, and safety monitoring.
+</DOCUMENT_TEXT>
+<QUESTION>
+What tasks can the AcmeCare XR-3000 assist with?
+</QUESTION>
+</TEST_CASE_5>
 
-Extract just the first and last names into a list format, with each full name on a separate line inside <NAMES> XML tags. Only include the first and last names - do not include any other information from the text.
+<RATIONALE>
+The test cases are designed to evaluate the LLM's ability to extract relevant information from a document and provide helpful responses to customer inquiries. The LLM should be able to identify and extract relevant sections from the document, evaluate the extracted quotes, and compose a helpful response based on the information provided. The test cases cover a range of inquiries to assess the LLM's performance in different scenarios.
+</RATIONALE>
+</EXAMPLE_1>
+<EXAMPLE_2>
+<PROMPT>
+# CONTEXT #
+I will provide you with a text inside <TEXT> XML tags. Read through the text carefully and identify all full names that include both first and last names. 
 
+# TEXT #
 Here is the text:
-
 <TEXT>
 {{TEXT}} 
 </TEXT>
 
+# INSTRUCTIONS #
+Extract just the first and last names into a list format, with each full name on a separate line inside <NAMES> XML tags. Only include the first and last names - do not include any other information from the text.
+
+# RESPONSE FORMAT #
 Please provide the list of extracted names here:
 <NAMES>
 
 </NAMES>
 
-Think step-by-step and double check your work. Do not include anything other than the first and last names extracted from the provided text.```
+Think step-by-step and double check your work. Do not include anything other than the first and last names extracted from the provided text.
+</PROMPT>
+
+# EXPECTED RESPONSE #
 <TEST_CASE_1>
 <TEXT>
 Steve Jobs was a key member of Apple, especially in its early days, and Tim Cook is the current CEO. 
@@ -288,17 +322,30 @@ Steve Jobs was a key member of Apple, especially in its early days, and Tim Cook
 Mr. Jones and his student, Tim Smith, are working on a new project together.
 </TEXT>
 </TEST_CASE_2>
-...
-<TEST_CASE_10>
+<TEST_CASE_3>
 <TEXT>
-I want to know the names of all the people who work at Acme Dynamics.
+The famous author, J.K. Rowling, wrote the Harry Potter series.
 </TEXT>
-</TEST_CASE_10>
-</EXAMPLE>
+</TEST_CASE_3>
+<TEST_CASE_4>
+<TEXT>
+The CEO of Tesla, Elon Musk, is known for his work in the electric vehicle industry.
+</TEXT>
+</TEST_CASE_4>
+<TEST_CASE_5>
+<TEXT>
+The artist, Vincent van Gogh, was known for his unique style of painting.
+</TEXT>
+</TEST_CASE_5>
+
+<RATIONALE>
+The test cases are designed to evaluate the LLM's ability to extract specific information from a text. The LLM should be able to identify and extract full names that include both first and last names from the text. The test cases cover a range of scenarios to assess the LLM's performance in different contexts.
+</RATIONALE>
+</EXAMPLE_2>
 </EXAMPLES>
 
 # PROMPT #
-Here is the prompt for which you need to generate test cases. Read it carefully:
+Here is the actual prompt for which you need to generate test cases. Read it carefully:
 <PROMPT>
 {prompt}
 </PROMPT>
@@ -313,11 +360,12 @@ It is essential that you use the following variable name(s) in your test cases. 
 Follow this procedure to generate test cases:
 1. Read the PROMPT carefully, focusing on its intent, goal, and task it is designed to elicit from the LLM. Document your understanding of the PROMPT in <PROMPT_ANALYSIS></PROMPT_ANALYSIS> XML tags.
 2. Generate {num_test_cases} test cases that can be used to assess how well the prompt achieves its goal. Ensure they are diverse and cover different aspects of the prompt. The test cases should attempt to reveal areas where the prompt can be improved. Write your numbered test cases in <TEST_CASE_#></TEST_CASE_#> XML tags. Inside these tags, use additional tags that specify the name of the variable your input is represented by. 
+3. Describe the rationale behind the test cases you have created in <RATIONALE></RATIONALE> XML tags. Explain why you chose these specific test cases and how they will help evaluate the prompt's performance.
 
 # ADDITIONAL GUIDELINES #
-Double check your test cases against the procedure and examples before you answer.
 Remember to match the format of the example exactly. Ensure the XML tags you use match the variable name(s) in the prompt exactly. For example, if the prompt contains <DOCUMENT>{{TEXT}}</DOCUMENT>, your test input must be written within <TEXT></TEXT> XML tags. 
 In this case, the variable name(s) are exactly: "{var_names}", which must be reflected in your XML tags.
+Do not be lazy when generating test cases. You must generate exactly {num_test_cases} unique test cases. Think step by step and double check your test cases against the procedure and examples before you answer.
 """
 
         test_cases_response = await self.api.send_request_to_model(
@@ -450,9 +498,9 @@ Remember, the prompt you are evaluating was asked of another LLM, and the respon
                 - The response received from the model.
                 - The evaluation of the response.
         """
-        print(f"\n{test_case} input(s): ")
-        for key, val in test_case_data.items():
-            print_info(f"{key}: {val}")
+        # print_info(f"\n{test_case} input(s): ")
+        # for key, val in test_case_data.items():
+        # print(f"{key}: {val}")
         skip_test_case = False
         for val in test_case_data.values():
             if val is None or val == "None":
@@ -495,7 +543,7 @@ Remember, the prompt you are evaluating was asked of another LLM, and the respon
             failed_test_cases (bool): A boolean indicating whether any test cases failed.
         """
         results, failed_test_cases = {}, False
-        print_info(f"\n*** Evaluating test cases concurrently... ***")
+        print_info(f"*** Beginning self-evaluation... ***\n")
         test_case_handling_tasks = [
             asyncio.create_task(
                 self.handle_test_case(test_case, test_cases[test_case], prompt_template)
@@ -508,10 +556,11 @@ Remember, the prompt you are evaluating was asked of another LLM, and the respon
         ):
             if not response or not evaluation:
                 skip_test_case = True
-                # return None, None, None
             if response:
-                print(f"{test_case} response: ")
-                print_info(f"{response}")
+                print_info(f"{test_case.title().replace('_', ' ')} input(s): ")
+                print(f"{test_cases[test_case]}")
+                print_info(f"{test_case.title().replace('_', ' ')} response: ")
+                print(f"{response}")
             if skip_test_case:
                 continue
 

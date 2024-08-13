@@ -45,6 +45,7 @@ class AnthropicAPI:
             prompt (str): The prompt for generating the response.
             max_tokens_to_sample (int, optional): The maximum number of tokens to sample. Defaults to 4000.
             temperature (float, optional): The temperature parameter for controlling the randomness of the generated response. Defaults to 0.
+            max_retries (int, optional): The maximum number of retries in case of an error. Defaults to 10.
 
         Returns:
             Optional[str]: The generated response from the Claude API, or None if an error occurred.
@@ -91,7 +92,6 @@ class WriterAPI:
         prompt: str,
         max_tokens_to_sample: int = 4000,
         temperature: float = 0,
-        config: Dict[str, Any] = {},
         max_retries: int = 10,
     ) -> Optional[str]:
         """
@@ -101,12 +101,11 @@ class WriterAPI:
             prompt (str): The prompt for generating the response.
             max_tokens_to_sample (int, optional): The maximum number of tokens to sample. Defaults to 4000.
             temperature (float, optional): The temperature parameter for controlling the randomness of the generated response. Defaults to 0.
+            max_retries (int, optional): The maximum number of retries in case of an error. Defaults to 10.
 
         Returns:
             Optional[str]: The generated response from the Writer API, or None if an error occurred.
         """
-        if not config:
-            config = {"temperature": temperature, "max_tokens": max_tokens_to_sample}
 
         rate_limit_sleep_time = 0.5
         for _ in range(max_retries):
@@ -116,6 +115,9 @@ class WriterAPI:
                         model="palmyra-x-32k",
                         prompt=prompt,
                         stream=False,
+                        temperature=temperature,
+                        max_tokens=max_tokens_to_sample,
+                        stop=[],
                     )
                     return completion.choices[0].text
                 except Exception as e:

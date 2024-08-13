@@ -3,20 +3,20 @@ from colorama import Fore, Style
 
 
 # Example of using color-coded print statements:
-def print_info(message: str):
-    print(f"{Fore.BLUE}{message}{Style.RESET_ALL}")
+def print_info(message: str, end="\n"):
+    print(f"{Fore.BLUE}{message}{Style.RESET_ALL}", end=end)
 
 
-def print_success(message: str):
-    print(f"{Fore.GREEN}{message}{Style.RESET_ALL}")
+def print_success(message: str, end="\n"):
+    print(f"{Fore.GREEN}{message}{Style.RESET_ALL}", end=end)
 
 
-def print_warning(message: str):
-    print(f"{Fore.YELLOW}{message}{Style.RESET_ALL}")
+def print_warning(message: str, end="\n"):
+    print(f"{Fore.YELLOW}{message}{Style.RESET_ALL}", end=end)
 
 
-def print_error(message: str):
-    print(f"{Fore.RED}{message}{Style.RESET_ALL}")
+def print_error(message: str, end="\n"):
+    print(f"{Fore.RED}{message}{Style.RESET_ALL}", end=end)
 
 
 # Function to print the final generated prompt and completion message

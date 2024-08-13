@@ -170,7 +170,7 @@ def extract_test_cases(response: str) -> Optional[Dict[str, Dict[str, str]]]:
         test_case_tags = re.findall(r"<TEST_CASE_(\d+)>", response, re.IGNORECASE)
         for tag in test_case_tags:
             # Constructing the tag name for the current test case
-            test_case_tag = f"test_case_{tag}"
+            test_case_tag = f"TEST_CASE_{tag}"
 
             match = re.search(
                 rf"<{test_case_tag}>(.*?)</{test_case_tag}>",
@@ -215,7 +215,7 @@ def update_variable_names(
     ]
 
     sorted_placeholder_names = sorted(placeholder_names_cleaned)
-    sorted_test_case_names = sorted(test_cases["test_case_1"].keys())
+    sorted_test_case_names = sorted(test_cases["TEST_CASE_1"].keys())
 
     mismatch_found = False
     for placeholder, test_case_name in zip(
@@ -232,7 +232,7 @@ def update_variable_names(
             else:
                 # Un-fixable mismatch found, need to regenerate test cases
                 print_warning(
-                    f"Placeholder name '{placeholder}' does not match test case input variable name '{test_case_name}'. Regenerating test cases..."
+                    f"Placeholder name '{placeholder}' does not match test case input variable name '{test_case_name}'. Regenerating test case(s)..."
                 )
                 mismatch_found = True
                 inner_dict = {}
@@ -299,17 +299,17 @@ def handle_eval_result(tc_name: str, eval_result: Optional[str]) -> bool:
         return False  # Default to no failure
     if tc_name == "":
         tc_name = "evaluation"
-    print(f"{tc_name} result: ", end="")
+    print_info(f"{tc_name.title().replace('_', ' ')} result: ", end="")
     if eval_result == "FAIL":
-        print_warning("FAIL")
+        print_warning("FAIL\n")
         return True  # Indicates failure
     elif eval_result == "PASS" or (
         "pass" in eval_result.lower() and "fail" not in eval_result.lower()
     ):
-        print_success("PASS")
+        print_success("PASS\n")
         return False  # Indicates success
     else:
-        print_info("Evaluation result unknown.")
+        print_info("Evaluation result unknown.\n")
         return False  # Default to no failure
 
 

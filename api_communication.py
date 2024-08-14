@@ -34,6 +34,7 @@ class AnthropicAPI:
     async def send_request_to_model(
         self,
         prompt: str,
+        model: str,
         max_tokens_to_sample: int = 4000,
         temperature: float = 0,
         max_retries: int = 10,
@@ -43,6 +44,7 @@ class AnthropicAPI:
 
         Args:
             prompt (str): The prompt for generating the response.
+            model (str): The model to use for generating the response.
             max_tokens_to_sample (int, optional): The maximum number of tokens to sample. Defaults to 4000.
             temperature (float, optional): The temperature parameter for controlling the randomness of the generated response. Defaults to 0.
             max_retries (int, optional): The maximum number of retries in case of an error. Defaults to 10.
@@ -55,7 +57,7 @@ class AnthropicAPI:
             try:
                 async with AsyncAnthropic() as client:
                     completion = await client.messages.create(
-                        model="claude-3-sonnet-20240229",
+                        model=model,
                         max_tokens=max_tokens_to_sample,
                         temperature=temperature,
                         messages=[
@@ -90,6 +92,7 @@ class WriterAPI:
     async def send_request_to_model(
         self,
         prompt: str,
+        model: str,
         max_tokens_to_sample: int = 4000,
         temperature: float = 0,
         max_retries: int = 10,
@@ -99,6 +102,7 @@ class WriterAPI:
 
         Args:
             prompt (str): The prompt for generating the response.
+            model (str): The model to use for generating the response.
             max_tokens_to_sample (int, optional): The maximum number of tokens to sample. Defaults to 4000.
             temperature (float, optional): The temperature parameter for controlling the randomness of the generated response. Defaults to 0.
             max_retries (int, optional): The maximum number of retries in case of an error. Defaults to 10.
@@ -112,7 +116,7 @@ class WriterAPI:
             async with AsyncWriter() as client:
                 try:
                     completion = await client.completions.create(
-                        model="palmyra-x-32k",
+                        model=model,
                         prompt=prompt,
                         stream=False,
                         temperature=temperature,

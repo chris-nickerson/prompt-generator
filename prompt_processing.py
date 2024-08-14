@@ -1,5 +1,5 @@
 import asyncio
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 from utils import print_success, print_info, print_warning, print_error
 from prompt_processing_utils import (
     extract_generated_prompt,
@@ -12,10 +12,12 @@ from prompt_processing_utils import (
     store_results_for_file,
     parse_results_for_file,
 )
+from model_selector import model_selector
 
 
 class PromptProcessor:
-    def __init__(self, api_client):
+    def __init__(self, api_client: Any, provider: str):
+        self.provider = provider
         self.api = api_client
 
     async def generate_prompt(
@@ -29,6 +31,7 @@ class PromptProcessor:
         Returns:
             Optional[str]: The generated prompt or None if prompt generation failed.
         """
+        task_name = "prompt-generation"
         if eval_results:
             print_warning(f"\n*** Iterating prompt due to failed test case(s)... ***")
             # If there are failed evaluation results, build string that includes them
@@ -159,7 +162,9 @@ Generate a prompt based on the following prompt description. Read it carefully:
 """
 
         prompt_generation_response = await self.api.send_request_to_model(
-            prompt_generation_prompt, temperature=0.1
+            prompt=prompt_generation_prompt,
+            model=model_selector[self.provider][task_name]["model"],
+            temperature=model_selector[self.provider][task_name]["temperature"],
         )
         if prompt_generation_response:
             generated_prompt = extract_generated_prompt(prompt_generation_response)
@@ -206,6 +211,7 @@ Generate a prompt based on the following prompt description. Read it carefully:
         print_info(
             f"\n*** Generating test case(s) to evaluate prompt performance... ***"
         )
+        task_name = "test-case-generation"
         test_case_generation_prompt = f"""
 # CONTEXT #
 You are an experienced prompt engineer. Your task is to create test case inputs based on a given LLM prompt. The inputs should be designed to effectively evaluate the prompt's quality, adherence to best-practices, and success in achieving its desired goal.
@@ -369,7 +375,9 @@ Do not be lazy when generating test cases. You must generate exactly {num_test_c
 """
 
         test_cases_response = await self.api.send_request_to_model(
-            test_case_generation_prompt, temperature=0.2
+            prompt=test_case_generation_prompt,
+            model=model_selector[self.provider][task_name]["model"],
+            temperature=model_selector[self.provider][task_name]["temperature"],
         )
         if test_cases_response:
             test_cases = extract_test_cases(test_cases_response)
@@ -381,7 +389,11 @@ Do not be lazy when generating test cases. You must generate exactly {num_test_c
             return None
 
     async def setup_test_cases(
-        self, num_tc: int, prompt_template: str, placeholder_names: List[str]
+        self,
+        num_tc: int,
+        prompt_template: str,
+        placeholder_names: List[str],
+        max_retries=10,
     ) -> Union[Dict[str, str], None]:
         """
         Generate test cases based on the given parameters.
@@ -390,24 +402,31 @@ Do not be lazy when generating test cases. You must generate exactly {num_test_c
             num_tc (int): The number of test cases to generate.
             prompt_template (str): The template for the prompt.
             placeholder_names (List[str]): The list of placeholder names.
+            max_retries (int): The maximum number of retries for generating test cases.
 
         Returns:
             Union[Dict[str, str], None]: The generated test cases as a dictionary, or None if unable to generate.
 
         """
-        while True:
+        for _ in range(max_retries):
             test_cases = await self.generate_test_cases(
                 num_tc, prompt_template, placeholder_names
             )
+            if any(["parsing failed" in test_cases[key] for key in test_cases]):
+                print_warning(
+                    "Test Case parsing failed. Retrying test case generation..."
+                )
+                continue
             if test_cases is None:
                 return None
             test_cases, test_case_retry = update_variable_names(
                 test_cases, placeholder_names
             )
             if not test_case_retry:
-                break
-        print_success(f"*** Set up {len(test_cases)} test cases. ***")
-        return test_cases
+                print_success(f"*** Set up {len(test_cases)} test cases. ***")
+                return test_cases
+        print_error("Test case generation failed after multiple retries.")
+        return None
 
     async def evaluate_response(
         self, prompt_to_eval: str, response_to_eval: str
@@ -422,6 +441,7 @@ Do not be lazy when generating test cases. You must generate exactly {num_test_c
         Returns:
             Optional[str]: The evaluation of the response, or None if evaluation fails.
         """
+        task_name = "test-case-evaluation"
         evaluation_prompt = f"""
 # CONTEXT #
 Your task is to evaluate the adherence of a response to the associated prompt. Failure of the response to adhere to the instructions in the prompt can indicate flawed prompt engineering.
@@ -446,9 +466,10 @@ Follow this procedure to perform your evaluation:
 
 Remember, the prompt you are evaluating was asked of another LLM, and the response was created by that same other LLM. Your job is to evaluate the performance. Think step by step before you answer.
 """
-
         evaluation_response = await self.api.send_request_to_model(
-            evaluation_prompt, temperature=0
+            prompt=evaluation_prompt,
+            model=model_selector[self.provider][task_name]["model"],
+            temperature=model_selector[self.provider][task_name]["temperature"],
         )
         if evaluation_response:
             return evaluation_response
@@ -472,7 +493,12 @@ Remember, the prompt you are evaluating was asked of another LLM, and the respon
 
                 If the prompt execution fails or the evaluation is not available, None is returned for both values.
         """
-        response = await self.api.send_request_to_model(prompt, temperature=0)
+        task_name = "test-case-execution"
+        response = await self.api.send_request_to_model(
+            prompt=prompt,
+            model=model_selector[self.provider][task_name]["model"],
+            temperature=model_selector[self.provider][task_name]["temperature"],
+        )
         if response is None:
             print_error("Prompt execution failed.")
             return None, None

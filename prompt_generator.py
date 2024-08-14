@@ -35,7 +35,7 @@ async def main() -> None:
         print_warning("Invalid provider. Exiting...")
         return
 
-    prompt_processor = PromptProcessor(api_client)
+    prompt_processor = PromptProcessor(api_client, provider)
 
     combined_results, test_results = [], {}
     test_cases, first_iteration = None, True

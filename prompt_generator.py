@@ -13,6 +13,9 @@ from prompt_processing import PromptProcessor
 from user_input import prompt_user, get_test_cases_count, get_provider
 
 
+MAX_ITERATIONS = 10
+
+
 async def main() -> None:
     """
     Main function that generates prompts, processes test cases, and prints results.
@@ -20,7 +23,6 @@ async def main() -> None:
     Returns:
         None
     """
-    MAX_ITERATIONS = 10
     goal = prompt_user()
     num_test_cases = get_test_cases_count()
     provider = get_provider()
